@@ -1,56 +1,79 @@
-'use client';
-import { Button, Card, Col, Input, Row, Tag, Typography } from 'antd';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { jobs } from '@/mock/jobs';
-
+"use client";
+import "./page.css";
 export default function Home() {
-  const router = useRouter();
-  const latest = jobs.slice(0, 3);
-
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-      <div style={{ textAlign: 'center', padding: '40px 0' }}>
-        <Typography.Title>Find your next job</Typography.Title>
-        <Typography.Paragraph>
-          Search vacancies, apply, and track your applications.
-        </Typography.Paragraph>
-        <Input.Search
-          placeholder="Job title or keyword"
-          enterButton="Search"
-          size="large"
-          style={{ maxWidth: 500 }}
-          onSearch={(v) => router.push(`/jobs?search=${encodeURIComponent(v)}`)}
-        />
-      </div>
+    <main className="home">
+      {/* Navigation bar */}
+      <nav className="navbar">
+        <a href="/" className="logo">
+          <span className="logo-icon">▣</span>
+          Job<span>Board</span>
+        </a>
 
-      <Typography.Title level={3}>Latest jobs</Typography.Title>
-      <Row gutter={[16, 16]}>
-        {latest.map((job) => (
-          <Col xs={24} md={8} key={job.id}>
-            <Card title={job.title} extra={<Tag>{job.type}</Tag>}>
-              <p>{job.company} · {job.location}</p>
-              <p>{job.salary}</p>
-              <Link href={`/jobs/${job.id}`}>View details</Link>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+        <div className="nav-links">
+          <a className="active" href="/">Home</a>
+          <a href="/jobs">Jobs</a>
+          <a href="/employers">Employers</a>
+          <a href="/about">About</a>
+        </div>
 
-      <Row gutter={[16, 16]} style={{ marginTop: 40 }}>
-        <Col xs={24} md={12}>
-          <Card title="I'm a job seeker">
-            <p>Create a profile, apply, and track every application.</p>
-            <Link href="/register"><Button type="primary">Get started</Button></Link>
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card title="I'm an employer">
-            <p>Post vacancies and manage applicants in one place.</p>
-            <Link href="/employer/jobs"><Button>Post a job</Button></Link>
-          </Card>
-        </Col>
-      </Row>
-    </div>
+        <div className="nav-actions">
+          <a className="login-btn" href="/auth/login">
+            Login
+          </a>
+          <a className="register-btn" href="/auth/register">
+            Register
+          </a>
+        </div>
+      </nav>
+
+      {/* Hero section */}
+      <section className="hero">
+        <div className="hero-content">
+          <div className="hero-badge">
+            <span>▣</span> Find Your Next Opportunity
+          </div>
+
+          <h1>
+            Your Dream Job is
+            <br />
+            <span>Waiting</span>
+          </h1>
+
+          <p className="subtitle">
+            Search vacancies, apply, and track every application
+            <br className="desktop-break" />
+            in one place.
+          </p>
+
+          {/* Job search form */}
+          <form className="search-box" action="/jobs" method="GET">
+            <label className="search-field">
+              <span>⌕</span>
+              <input
+                type="text"
+                name="keyword"
+                placeholder="Job title, keyword or company"
+              />
+            </label>
+
+            <label className="search-field location-field">
+              <span>⌖</span>
+              <input
+                type="text"
+                name="location"
+                placeholder="Location"
+              />
+            </label>
+
+            <button className="search-btn" type="submit">
+              <span>⌕</span> Search
+            </button>
+          </form>
+        </div>
+      </section>
+
+
+    </main>
   );
 }

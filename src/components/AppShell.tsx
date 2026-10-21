@@ -20,16 +20,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ color: '#fff', fontWeight: 700, marginRight: 24 }}>ONLINE JOB BOARD</div>
-        <Menu
-          theme="dark"
-          mode="horizontal"
-          selectedKeys={[pathname]}
-          items={items}
-          style={{ flex: 1, minWidth: 0 }}
-        />
-      </Header>
+      
       <Content style={{ padding: 24 }}>{children}</Content>
       <Footer style={{ textAlign: 'center' }}>Online Job Board · Apply Now</Footer>
     </Layout>
