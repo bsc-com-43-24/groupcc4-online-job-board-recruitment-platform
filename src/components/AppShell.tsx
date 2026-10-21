@@ -11,7 +11,7 @@ const items = [
   { key: '/applications', label: <Link href="/applications">My Applications</Link> },
   { key: '/employer/jobs', label: <Link href="/employer/jobs">Employer</Link> },
   { key: '/auth/login', label: <Link href="/auth/login">Login</Link> },
-  { key: '/register', label: <Link href="/register">Register</Link> },
+  { key: '/auth/register', label: <Link href="/auth/register">Register</Link> },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

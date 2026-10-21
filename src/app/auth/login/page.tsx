@@ -1,6 +1,8 @@
 'use client';
 
-import { Button, Card, Form, Input, Typography } from 'antd';
+import { useState } from 'react';
+import { Button, Card, Form, Input, Radio, Typography } from 'antd';
+import Link from 'next/link';
 
 type LoginFormValues = {
   email: string;
@@ -8,6 +10,7 @@ type LoginFormValues = {
 };
 
 export default function JobSeekerLoginPage() {
+  const [accountType, setAccountType] = useState<'job seeker' | 'employer'>('job seeker');
   const onFinish = (_values: LoginFormValues) => {
     // Authentication is outside the scope of this frontend validation form.
   };
@@ -16,11 +19,27 @@ export default function JobSeekerLoginPage() {
     <div style={{ maxWidth: 440, margin: '40px auto' }}>
       <Card>
         <Typography.Title level={2} style={{ marginTop: 0 }}>
-          Job seeker login
+          Log in as a {accountType}
         </Typography.Title>
         <Typography.Paragraph>
-          Sign in with your email address and password.
+          Choose your account type, then sign in with your email address and password.
         </Typography.Paragraph>
+
+        <Radio.Group
+          aria-label="Account type"
+          optionType="button"
+          buttonStyle="solid"
+          value={accountType}
+          onChange={(event) => setAccountType(event.target.value)}
+          style={{ display: 'flex', marginBottom: 24 }}
+        >
+          <Radio.Button value="job seeker" style={{ flex: 1, textAlign: 'center' }}>
+            Job seeker
+          </Radio.Button>
+          <Radio.Button value="employer" style={{ flex: 1, textAlign: 'center' }}>
+            Employer
+          </Radio.Button>
+        </Radio.Group>
 
         <Form<LoginFormValues>
           layout="vertical"
@@ -47,9 +66,13 @@ export default function JobSeekerLoginPage() {
           </Form.Item>
 
           <Button type="primary" htmlType="submit" block>
-            Log in
+            Log in as {accountType}
           </Button>
         </Form>
+
+        <Typography.Paragraph style={{ textAlign: 'center', margin: '20px 0 0' }}>
+          Haven&apos;t registered yet? <Link href="/auth/register">Register</Link>
+        </Typography.Paragraph>
       </Card>
     </div>
   );
