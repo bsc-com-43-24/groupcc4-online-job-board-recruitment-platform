@@ -5,7 +5,7 @@ import { Card, Tabs, Form, Input, Button, Typography, message, Divider } from 'a
 import { UserOutlined, LockOutlined, MailOutlined, BankOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/services/authService';
+import { authService, persistAuthSession } from '@/services/authService';
 
 const { Title, Text } = Typography;
 
@@ -36,13 +36,14 @@ export default function LoginPage() {
       const result = await authService.login(payload);
 
       if (result.success) {
+        persistAuthSession(result.user, result.token);
         messageApi.success('Login successful! Redirecting...');
 
         setTimeout(() => {
           if (activeRole === 'EMPLOYER') {
             router.push('/employer/jobs');
           } else {
-            router.push('/seeker/jobs/job-101');
+            router.push('/job-seeker/home');
           }
         }, 1000);
       }
