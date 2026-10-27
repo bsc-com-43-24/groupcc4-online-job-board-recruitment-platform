@@ -12,6 +12,20 @@ export interface AuthResponse {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+export function persistAuthSession(user: AuthResponse['user'] | undefined, token?: string) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toUTCString();
+  const safeRole = user?.role ?? 'SEEKER';
+  const safeName = user?.name ?? 'User';
+
+  document.cookie = `token=${encodeURIComponent(token ?? 'mock-jwt-token-12345')}; path=/; expires=${expires}; SameSite=Lax`;
+  document.cookie = `user_role=${encodeURIComponent(safeRole)}; path=/; expires=${expires}; SameSite=Lax`;
+  document.cookie = `user_name=${encodeURIComponent(safeName)}; path=/; expires=${expires}; SameSite=Lax`;
+}
+
 export const authService = {
   /**
    * Registers a user with mock fallback if the backend API is offline

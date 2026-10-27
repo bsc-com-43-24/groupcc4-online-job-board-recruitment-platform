@@ -20,7 +20,7 @@ import {
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/services/authService';
+import { authService, persistAuthSession } from '@/services/authService';
 
 const { Title, Text } = Typography;
 
@@ -54,13 +54,14 @@ export default function RegisterPage() {
       const result = await authService.register(payload as any);
 
       if (result.success) {
+        persistAuthSession(result.user, result.token);
         messageApi.success('Registration successful! Redirecting...');
 
         setTimeout(() => {
           if (activeRole === 'EMPLOYER') {
             router.push('/employer/jobs');
           } else {
-            router.push('/seeker/jobs/job-101');
+            router.push('/job-seeker/home');
           }
         }, 1000);
       }
