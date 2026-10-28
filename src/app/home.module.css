@@ -1,0 +1,241 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 72px 16px 88px;
+  background:
+    radial-gradient(1000px 420px at 15% -10%, rgba(96, 165, 250, 0.35), transparent 60%),
+    radial-gradient(900px 480px at 90% 0%, rgba(37, 99, 235, 0.4), transparent 55%),
+    linear-gradient(160deg, #0b1220 0%, #132347 55%, #1d4ed8 130%);
+  color: #ffffff;
+}
+
+.heroInner {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-bottom: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 197, 255, 0.5);
+  background: rgba(37, 99, 235, 0.22);
+  color: #dbeafe;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.titleAccent {
+  color: #93c5fd;
+}
+
+.subtitle {
+  max-width: 620px;
+  margin: 18px auto 32px;
+  font-size: clamp(16px, 2vw, 19px);
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.searchForm {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  max-width: 820px;
+  margin: 0 auto;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(8, 15, 30, 0.65);
+  box-shadow: 0 18px 48px rgba(2, 6, 23, 0.35);
+}
+
+.searchField {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+}
+
+.searchField input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #f8fafc;
+  font-size: 15px;
+}
+
+.searchField input::placeholder {
+  color: #94a3b8;
+}
+
+.searchButton {
+  height: 52px;
+  min-width: 132px;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 44px;
+}
+
+.stat {
+  min-width: 120px;
+}
+
+.statValue {
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.statLabel {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #93a8c9;
+}
+
+.section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 56px 16px 8px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 700;
+}
+
+.sectionLead {
+  margin: 6px 0 0;
+  color: var(--app-fg);
+  opacity: 0.7;
+}
+
+.jobCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  padding: 20px;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.jobCard:hover {
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
+  transform: translateY(-2px);
+}
+
+.jobMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.employerBand {
+  max-width: 1200px;
+  margin: 48px auto 0;
+  padding: 0 16px;
+}
+
+.employerCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%);
+  color: #ffffff;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.step {
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  padding: 22px;
+  background: var(--app-card);
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 48px 16px 64px;
+  }
+
+  .searchForm {
+    flex-direction: column;
+  }
+
+  .searchButton {
+    width: 100%;
+  }
+
+  .stats {
+    gap: 24px;
+  }
+
+  .employerCard {
+    padding: 22px;
+  }
+}

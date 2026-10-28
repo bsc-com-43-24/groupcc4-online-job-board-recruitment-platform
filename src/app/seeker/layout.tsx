@@ -1,11 +1,5 @@
-'use client';
+import type { ReactNode } from 'react';
 
-import React from 'react';
-
-export default function SeekerLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', paddingBottom: 40 }}>
-      {children}
-    </div>
-  );
+export default function SeekerLayout({ children }: { children: ReactNode }) {
+  return <div style={{ minHeight: 'calc(100vh - 68px)' }}>{children}</div>;
 }

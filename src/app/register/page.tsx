@@ -1,112 +1,109 @@
 'use client';
 
-import React, { useState } from 'react';
+import { Suspense, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  Alert,
+  App as AntApp,
+  Button,
   Card,
-  Tabs,
+  Checkbox,
+  Divider,
   Form,
   Input,
-  Button,
+  Tabs,
   Typography,
-  message,
-  Divider,
 } from 'antd';
 import {
-  UserOutlined,
+  BankOutlined,
   LockOutlined,
   MailOutlined,
-  BankOutlined,
   UserAddOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { authService, persistAuthSession } from '@/services/authService';
+import { authService } from '@/services/authService';
+import type { Role } from '@/mock/types';
+import { roleHome } from '@/services/session';
 
 const { Title, Text } = Typography;
 
-export type UserRole = 'SEEKER' | 'EMPLOYER';
+interface RegisterValues {
+  fullName?: string;
+  companyName?: string;
+  contactName?: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  terms: boolean;
+}
 
-export default function RegisterPage() {
-  const [activeRole, setActiveRole] = useState<UserRole>('SEEKER');
-  const [loading, setLoading] = useState(false);
-  const [form] = Form.useForm();
+function RegisterContent() {
   const router = useRouter();
-  const [messageApi, contextHolder] = message.useMessage();
+  const searchParams = useSearchParams();
+  const { message } = AntApp.useApp();
+  const [form] = Form.useForm<RegisterValues>();
+
+  const roleParam = searchParams.get('role');
+  const [activeRole, setActiveRole] = useState<Role>(
+    roleParam === 'EMPLOYER' ? 'EMPLOYER' : 'SEEKER',
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleRoleChange = (key: string) => {
-    setActiveRole(key as UserRole);
+    setActiveRole(key as Role);
+    setError(null);
     form.resetFields();
   };
 
-  const handleFinish = async (values: Record<string, string>) => {
+  const handleFinish = async (values: RegisterValues) => {
     setLoading(true);
+    setError(null);
 
-    const payload = {
-      role: activeRole,
+    const isEmployer = activeRole === 'EMPLOYER';
+    const name = isEmployer ? values.contactName ?? '' : values.fullName ?? '';
+
+    const result = await authService.register({
       email: values.email,
       password: values.password,
-      ...(activeRole === 'SEEKER'
-        ? { fullName: values.fullName }
-        : { companyName: values.companyName, contactName: values.contactName }),
-    };
+      role: activeRole,
+      name,
+      companyName: isEmployer ? values.companyName : undefined,
+    });
 
-    try {
-      const result = await authService.register(payload as any);
+    setLoading(false);
 
-      if (result.success) {
-        persistAuthSession(result.user, result.token);
-        messageApi.success('Registration successful! Redirecting...');
-
-        setTimeout(() => {
-          if (activeRole === 'EMPLOYER') {
-            router.push('/employer/jobs');
-          } else {
-            router.push('/job-seeker/home');
-          }
-        }, 1000);
-      }
-    } catch (err: any) {
-      console.error(err);
-      messageApi.error(
-        err.message || 'Registration failed. Please check your credentials and try again.'
-      );
-    } finally {
-      setLoading(false);
+    if (!result.success || !result.user) {
+      setError(result.message);
+      return;
     }
+
+    message.success('Account created. Welcome aboard!');
+    router.replace(roleHome(result.user.role));
+    router.refresh();
   };
 
   return (
     <div
       style={{
-        minHeight: '80vh',
+        minHeight: 'calc(100vh - 68px)',
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center',
-        padding: '24px 16px',
+        alignItems: 'flex-start',
+        padding: '48px 16px',
       }}
     >
-      {contextHolder}
-
-      <Card
-        variant="borderless"
-        style={{
-          width: '100%',
-          maxWidth: 460,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-          borderRadius: 12,
-        }}
-      >
-        {/* Header Title */}
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            Create an Account
+      <Card style={{ width: '100%', maxWidth: 520 }}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <Title level={3} style={{ marginBottom: 6 }}>
+            Create an account
           </Title>
           <Text type="secondary">
-            Sign up to start applying or post job vacancies
+            Register as a job seeker to apply, or as an employer to post vacancies.
           </Text>
         </div>
 
-        {/* Role Toggle Tabs */}
         <Tabs
           activeKey={activeRole}
           onChange={handleRoleChange}
@@ -116,7 +113,7 @@ export default function RegisterPage() {
               key: 'SEEKER',
               label: (
                 <span>
-                  <UserOutlined /> Job Seeker
+                  <UserOutlined aria-hidden /> Job Seeker
                 </span>
               ),
             },
@@ -124,146 +121,177 @@ export default function RegisterPage() {
               key: 'EMPLOYER',
               label: (
                 <span>
-                  <BankOutlined /> Employer
+                  <BankOutlined aria-hidden /> Employer
                 </span>
               ),
             },
           ]}
         />
 
+        {error ? (
+          <Alert
+            type="error"
+            showIcon
+            message={error}
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setError(null)}
+          />
+        ) : null}
+
         <Form
           form={form}
           layout="vertical"
           onFinish={handleFinish}
           requiredMark={false}
-          style={{ marginTop: 16 }}
+          disabled={loading}
         >
-          {/* Seeker Field: Full Name */}
-          {activeRole === 'SEEKER' && (
+          {activeRole === 'SEEKER' ? (
             <Form.Item
               name="fullName"
-              label="Full Name"
+              label="Full name"
               rules={[
-                { required: true, whitespace: true, message: 'Please enter your full name' },
-                { min: 2, message: 'Full name must be at least 2 characters long' },
+                { required: true, whitespace: true, message: 'Enter your full name' },
+                { min: 2, message: 'Name must be at least 2 characters' },
               ]}
             >
               <Input
-                prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
-                placeholder="e.g. John Banda"
+                prefix={<UserOutlined aria-hidden />}
+                placeholder="e.g. Thandiwe Banda"
                 size="large"
+                autoComplete="name"
               />
             </Form.Item>
-          )}
-
-          {/* Employer Fields: Company Name & Contact Person */}
-          {activeRole === 'EMPLOYER' && (
+          ) : (
             <>
               <Form.Item
                 name="companyName"
-                label="Company Name"
-                rules={[{ required: true, whitespace: true, message: 'Please enter company name' }]}
+                label="Company name"
+                rules={[
+                  { required: true, whitespace: true, message: 'Enter your company name' },
+                ]}
               >
                 <Input
-                  prefix={<BankOutlined style={{ color: '#bfbfbf' }} />}
+                  prefix={<BankOutlined aria-hidden />}
                   placeholder="e.g. TechCorp Solutions"
                   size="large"
+                  autoComplete="organization"
                 />
               </Form.Item>
 
               <Form.Item
                 name="contactName"
-                label="Contact Person (Full Name)"
-                rules={[{ required: true, whitespace: true, message: 'Please enter contact person name' }]}
+                label="Contact person"
+                rules={[
+                  { required: true, whitespace: true, message: 'Enter the contact person' },
+                ]}
               >
                 <Input
-                  prefix={<UserAddOutlined style={{ color: '#bfbfbf' }} />}
-                  placeholder="e.g. Jane Doe"
+                  prefix={<UserAddOutlined aria-hidden />}
+                  placeholder="e.g. Grace Mwale"
                   size="large"
+                  autoComplete="name"
                 />
               </Form.Item>
             </>
           )}
 
-          {/* Common Field: Email */}
           <Form.Item
             name="email"
-            label="Email Address"
+            label="Email address"
             rules={[
-              { required: true, whitespace: true, message: 'Please enter your email address' },
-              { type: 'email', message: 'Please enter a valid email address' },
+              { required: true, whitespace: true, message: 'Enter your email address' },
+              { type: 'email', message: 'Enter a valid email address' },
             ]}
           >
             <Input
-              prefix={<MailOutlined style={{ color: '#bfbfbf' }} />}
+              prefix={<MailOutlined aria-hidden />}
               placeholder="name@example.com"
               size="large"
+              autoComplete="email"
+              inputMode="email"
             />
           </Form.Item>
 
-          {/* Common Field: Password */}
           <Form.Item
             name="password"
             label="Password"
             rules={[
-              { required: true, message: 'Please enter a password' },
-              { min: 8, message: 'Password must be at least 8 characters long' },
+              { required: true, message: 'Enter a password' },
+              { min: 8, message: 'Use at least 8 characters' },
             ]}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
+              prefix={<LockOutlined aria-hidden />}
               placeholder="At least 8 characters"
               size="large"
+              autoComplete="new-password"
             />
           </Form.Item>
 
-          {/* Common Field: Confirm Password */}
           <Form.Item
             name="confirmPassword"
-            label="Confirm Password"
+            label="Confirm password"
             dependencies={['password']}
             rules={[
-              { required: true, message: 'Please confirm your password' },
+              { required: true, message: 'Confirm your password' },
               ({ getFieldValue }) => ({
                 validator(_, value) {
                   if (!value || getFieldValue('password') === value) {
                     return Promise.resolve();
                   }
-                  return Promise.reject(new Error('Passwords do not match!'));
+                  return Promise.reject(new Error('Passwords do not match'));
                 },
               }),
             ]}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-              placeholder="Re-enter password"
+              prefix={<LockOutlined aria-hidden />}
+              placeholder="Re-enter your password"
               size="large"
+              autoComplete="new-password"
             />
           </Form.Item>
 
-          {/* Submit Action */}
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            block
-            loading={loading}
-            style={{ marginTop: 8 }}
+          <Form.Item
+            name="terms"
+            valuePropName="checked"
+            rules={[
+              {
+                validator: (_, value) =>
+                  value
+                    ? Promise.resolve()
+                    : Promise.reject(new Error('Accept the terms to continue')),
+              },
+            ]}
           >
+            <Checkbox>
+              I agree to the terms of use and privacy policy for this demo.
+            </Checkbox>
+          </Form.Item>
+
+          <Button type="primary" htmlType="submit" size="large" block loading={loading}>
             Register as {activeRole === 'SEEKER' ? 'Job Seeker' : 'Employer'}
           </Button>
         </Form>
 
         <Divider style={{ margin: '20px 0' }} />
 
-        {/* Link to Login Page */}
         <div style={{ textAlign: 'center' }}>
           <Text type="secondary">Already have an account? </Text>
           <Link href="/login" style={{ fontWeight: 600 }}>
-            Log In
+            Log in
           </Link>
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 48, textAlign: 'center' }}>Loading…</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }

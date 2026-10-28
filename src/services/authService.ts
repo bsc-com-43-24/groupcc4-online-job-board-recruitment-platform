@@ -1,99 +1,154 @@
+import type { Role } from '@/mock/types';
+import { createAccount, findAccount, findAccountByEmail } from '@/mock/store';
+import { apiConfigured, loginRequest, registerRequest } from './api';
+import { persistSession } from './session';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: Role;
+  name: string;
+}
+
 export interface AuthResponse {
   success: boolean;
   message: string;
   token?: string;
-  user?: {
-    id: string;
-    email: string;
-    role: 'SEEKER' | 'EMPLOYER';
-    name: string;
-  };
+  user?: AuthUser;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-export function persistAuthSession(user: AuthResponse['user'] | undefined, token?: string) {
-  if (typeof document === 'undefined') {
-    return;
-  }
-
-  const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toUTCString();
-  const safeRole = user?.role ?? 'SEEKER';
-  const safeName = user?.name ?? 'User';
-
-  document.cookie = `token=${encodeURIComponent(token ?? 'mock-jwt-token-12345')}; path=/; expires=${expires}; SameSite=Lax`;
-  document.cookie = `user_role=${encodeURIComponent(safeRole)}; path=/; expires=${expires}; SameSite=Lax`;
-  document.cookie = `user_name=${encodeURIComponent(safeName)}; path=/; expires=${expires}; SameSite=Lax`;
+export interface LoginInput {
+  email: string;
+  password: string;
+  role: Role;
 }
 
+export interface RegisterInput {
+  email: string;
+  password: string;
+  role: Role;
+  name: string;
+  companyName?: string;
+}
+
+const DEMO_TOKEN = 'mock-jwt-token';
+const SIMULATED_LATENCY_MS = 300;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const roleLabel = (role: Role) => (role === 'EMPLOYER' ? 'Employer' : 'Job Seeker');
+
+function startSession(user: AuthUser, token = DEMO_TOKEN): AuthResponse {
+  persistSession(
+    {
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+      email: user.email,
+    },
+    token,
+  );
+
+  return { success: true, message: 'Signed in.', token, user };
+}
+
+/**
+ * Frontend-only authentication against the demo store.
+ *
+ * When `NEXT_PUBLIC_API_URL` is configured the real endpoints are used
+ * instead; there is no silent fallback to mock data once a backend exists, so
+ * a broken backend is visible rather than disguised.
+ */
 export const authService = {
-  /**
-   * Registers a user with mock fallback if the backend API is offline
-   */
-  async register(data: Record<string, unknown>): Promise<AuthResponse> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
+  async login(input: LoginInput): Promise<AuthResponse> {
+    if (apiConfigured) {
+      try {
+        const response = await loginRequest(input);
+        if (!response.success || !response.user) {
+          return { success: false, message: response.message || 'Sign in failed.' };
+        }
+        return startSession(response.user, response.token);
+      } catch (error) {
+        return {
+          success: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not reach the server. Please try again.',
+        };
       }
+    }
 
-      return await response.json();
-    } catch (error) {
-      console.warn('Backend unavailable, returning frontend mock response:', error);
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    await delay(SIMULATED_LATENCY_MS);
 
+    const account = findAccount(input.email, input.password);
+
+    if (!account) {
       return {
-        success: true,
-        message: 'Mock registration successful',
-        token: 'mock-jwt-token-12345',
-        user: {
-          id: 'usr-101',
-          email: String(data.email || ''),
-          role: (data.role as 'SEEKER' | 'EMPLOYER') || 'SEEKER',
-          name: String(data.fullName || data.companyName || 'User'),
-        },
+        success: false,
+        message: 'Email or password is incorrect.',
       };
     }
+
+    if (account.role !== input.role) {
+      return {
+        success: false,
+        message: `That email is registered as a ${roleLabel(account.role)}. Switch to the ${roleLabel(account.role)} tab to sign in.`,
+      };
+    }
+
+    return startSession({
+      id: account.id,
+      email: account.email,
+      role: account.role,
+      name: account.name,
+    });
   },
 
-  /**
-   * Authenticates a user with mock fallback if the backend API is offline
-   */
-  async login(data: Record<string, unknown>): Promise<AuthResponse> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
+  async register(input: RegisterInput): Promise<AuthResponse> {
+    if (apiConfigured) {
+      try {
+        const response = await registerRequest(input);
+        if (!response.success || !response.user) {
+          return {
+            success: false,
+            message: response.message || 'Registration failed.',
+          };
+        }
+        return startSession(response.user, response.token);
+      } catch (error) {
+        return {
+          success: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not reach the server. Please try again.',
+        };
       }
+    }
 
-      return await response.json();
-    } catch (error) {
-      console.warn('Backend unavailable, returning frontend mock response:', error);
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    await delay(SIMULATED_LATENCY_MS);
 
+    if (findAccountByEmail(input.email)) {
       return {
-        success: true,
-        message: 'Mock login successful',
-        token: 'mock-jwt-token-12345',
-        user: {
-          id: 'usr-101',
-          email: String(data.email || ''),
-          role: (data.role as 'SEEKER' | 'EMPLOYER') || 'SEEKER',
-          name: 'Demo User',
-        },
+        success: false,
+        message: 'An account with that email already exists. Try signing in instead.',
       };
     }
+
+    const account = createAccount({
+      email: input.email,
+      password: input.password,
+      role: input.role,
+      name: input.name,
+      companyName: input.companyName,
+    });
+
+    return startSession({
+      id: account.id,
+      email: account.email,
+      role: account.role,
+      name: account.name,
+    });
   },
 };

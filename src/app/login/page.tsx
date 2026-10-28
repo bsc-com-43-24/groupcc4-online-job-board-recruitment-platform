@@ -1,94 +1,106 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, Tabs, Form, Input, Button, Typography, message, Divider } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined, BankOutlined } from '@ant-design/icons';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { authService, persistAuthSession } from '@/services/authService';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  Alert,
+  App as AntApp,
+  Button,
+  Card,
+  Divider,
+  Form,
+  Input,
+  Space,
+  Tabs,
+  Tag,
+  Typography,
+} from 'antd';
+import { BankOutlined, LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
+import { authService } from '@/services/authService';
+import type { Role } from '@/mock/types';
+import { roleHome, safeNextPath } from '@/services/session';
+import { demoAccounts } from '@/mock/seed';
 
 const { Title, Text } = Typography;
 
-export type UserRole = 'SEEKER' | 'EMPLOYER';
+interface LoginValues {
+  email: string;
+  password: string;
+}
 
-export default function LoginPage() {
-  const [activeRole, setActiveRole] = useState<UserRole>('SEEKER');
-  const [loading, setLoading] = useState(false);
-  const [form] = Form.useForm();
+function LoginContent() {
   const router = useRouter();
-  const [messageApi, contextHolder] = message.useMessage();
+  const searchParams = useSearchParams();
+  const { message } = AntApp.useApp();
+  const [form] = Form.useForm<LoginValues>();
+
+  const roleParam = searchParams.get('role');
+  const [activeRole, setActiveRole] = useState<Role>(
+    roleParam === 'EMPLOYER' ? 'EMPLOYER' : 'SEEKER',
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleRoleChange = (key: string) => {
-    setActiveRole(key as UserRole);
+    setActiveRole(key as Role);
+    setError(null);
     form.resetFields();
   };
 
-  const handleFinish = async (values: Record<string, string>) => {
+  const handleFinish = async (values: LoginValues) => {
     setLoading(true);
+    setError(null);
 
-    const payload = {
-      role: activeRole,
+    const result = await authService.login({
       email: values.email,
       password: values.password,
-    };
+      role: activeRole,
+    });
 
-    try {
-      const result = await authService.login(payload);
+    setLoading(false);
 
-      if (result.success) {
-        persistAuthSession(result.user, result.token);
-        messageApi.success('Login successful! Redirecting...');
-
-        setTimeout(() => {
-          if (activeRole === 'EMPLOYER') {
-            router.push('/employer/jobs');
-          } else {
-            router.push('/job-seeker/home');
-          }
-        }, 1000);
-      }
-    } catch (err: any) {
-      console.error(err);
-      messageApi.error(
-        err.message || 'Login failed. Please check your credentials and try again.'
-      );
-    } finally {
-      setLoading(false);
+    if (!result.success || !result.user) {
+      setError(result.message);
+      return;
     }
+
+    message.success(`Welcome back, ${result.user.name.split(' ')[0]}.`);
+
+    const next = safeNextPath(searchParams.get('next'));
+    router.replace(next ?? roleHome(result.user.role));
+    router.refresh();
+  };
+
+  const fillDemoCredentials = () => {
+    const demo = demoAccounts.find((account) => account.role === activeRole);
+    if (!demo) {
+      return;
+    }
+    form.setFieldsValue({ email: demo.email, password: demo.password });
+    setError(null);
   };
 
   return (
     <div
       style={{
-        minHeight: '80vh',
+        minHeight: 'calc(100vh - 68px)',
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center',
-        padding: '24px 16px',
+        alignItems: 'flex-start',
+        padding: '48px 16px',
       }}
     >
-      {contextHolder}
-
-      <Card
-        variant="borderless"
-        style={{
-          width: '100%',
-          maxWidth: 420,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-          borderRadius: 12,
-        }}
-      >
-        {/* Header Title */}
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            Welcome Back
+      <Card style={{ width: '100%', maxWidth: 460 }}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <Title level={3} style={{ marginBottom: 6 }}>
+            Welcome back
           </Title>
           <Text type="secondary">
-            Sign in to access your {activeRole === 'SEEKER' ? 'job seeker' : 'employer'} portal
+            Sign in to your {activeRole === 'SEEKER' ? 'job seeker' : 'employer'} account
           </Text>
         </div>
 
-        {/* Role Toggle Tabs */}
         <Tabs
           activeKey={activeRole}
           onChange={handleRoleChange}
@@ -98,7 +110,7 @@ export default function LoginPage() {
               key: 'SEEKER',
               label: (
                 <span>
-                  <UserOutlined /> Job Seeker
+                  <UserOutlined aria-hidden /> Job Seeker
                 </span>
               ),
             },
@@ -106,72 +118,106 @@ export default function LoginPage() {
               key: 'EMPLOYER',
               label: (
                 <span>
-                  <BankOutlined /> Employer
+                  <BankOutlined aria-hidden /> Employer
                 </span>
               ),
             },
           ]}
         />
 
+        {error ? (
+          <Alert
+            type="error"
+            showIcon
+            message={error}
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setError(null)}
+          />
+        ) : null}
+
         <Form
           form={form}
           layout="vertical"
           onFinish={handleFinish}
           requiredMark={false}
-          style={{ marginTop: 16 }}
+          disabled={loading}
         >
-          {/* Email Address */}
           <Form.Item
             name="email"
-            label="Email Address"
+            label="Email address"
             rules={[
-              { required: true, whitespace: true, message: 'Please enter your email address' },
-              { type: 'email', message: 'Please enter a valid email address' },
+              { required: true, whitespace: true, message: 'Enter your email address' },
+              { type: 'email', message: 'Enter a valid email address' },
             ]}
           >
             <Input
-              prefix={<MailOutlined style={{ color: '#bfbfbf' }} />}
+              prefix={<MailOutlined aria-hidden />}
               placeholder="name@example.com"
               size="large"
+              autoComplete="email"
+              inputMode="email"
             />
           </Form.Item>
 
-          {/* Password */}
           <Form.Item
             name="password"
             label="Password"
-            rules={[{ required: true, message: 'Please enter your password' }]}
+            rules={[{ required: true, message: 'Enter your password' }]}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-              placeholder="Enter password"
+              prefix={<LockOutlined aria-hidden />}
+              placeholder="Enter your password"
               size="large"
+              autoComplete="current-password"
             />
           </Form.Item>
 
-          {/* Submit Action */}
           <Button
             type="primary"
             htmlType="submit"
             size="large"
             block
             loading={loading}
-            style={{ marginTop: 8 }}
+            style={{ marginTop: 4 }}
           >
-            Log In as {activeRole === 'SEEKER' ? 'Job Seeker' : 'Employer'}
+            Log in as {activeRole === 'SEEKER' ? 'Job Seeker' : 'Employer'}
           </Button>
         </Form>
 
         <Divider style={{ margin: '20px 0' }} />
 
-        {/* Fixed Link to Registration Page */}
+        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+          <Space size={8} wrap style={{ justifyContent: 'center' }}>
+            <Text type="secondary">Demo account:</Text>
+            <Tag>{demoAccounts.find((account) => account.role === activeRole)?.email}</Tag>
+            <Tag>Demo1234</Tag>
+          </Space>
+          <Button block onClick={fillDemoCredentials}>
+            Fill demo credentials
+          </Button>
+          <Text type="secondary" style={{ textAlign: 'center', display: 'block', fontSize: 13 }}>
+            This frontend demo keeps accounts in your browser only.
+          </Text>
+        </Space>
+
+        <Divider style={{ margin: '20px 0' }} />
+
         <div style={{ textAlign: 'center' }}>
-          <Text type="secondary">Don't have an account? </Text>
+          <Text type="secondary">Don&apos;t have an account? </Text>
           <Link href="/register" style={{ fontWeight: 600 }}>
-            Register Now
+            Register now
           </Link>
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 48, textAlign: 'center' }}>Loading…</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

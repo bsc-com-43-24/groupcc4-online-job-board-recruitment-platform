@@ -1,28 +1,35 @@
 'use client';
 
-import { Layout, Menu } from 'antd';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Layout, Space } from 'antd';
+import SiteHeader from './SiteHeader';
 
-const { Header, Content, Footer } = Layout;
-
-const items = [
-  { key: '/', label: <Link href="/">Home</Link> },
-  { key: '/seeker/jobs/job-101', label: <Link href="/seeker/jobs/job-101">Jobs</Link> },
-  { key: '/applications', label: <Link href="/applications">My Applications</Link> },
-  { key: '/employer/jobs', label: <Link href="/employer/jobs">Employer</Link> },
-  { key: '/auth/login', label: <Link href="/auth/login">Login</Link> },
-  { key: '/register', label: <Link href="/register">Register</Link> },
-];
-
-export default function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
+export default function AppShell({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      
-      <Content style={{ padding: 24 }}>{children}</Content>
-      <Footer style={{ textAlign: 'center' }}>Online Job Board · Apply Now</Footer>
+    <Layout style={{ minHeight: '100vh', background: 'var(--app-bg)' }}>
+      <SiteHeader />
+      <main id="main-content" style={{ flex: 1 }}>
+        {children}
+      </main>
+      <Layout.Footer
+        style={{
+          textAlign: 'center',
+          background: 'transparent',
+          borderTop: '1px solid var(--app-border)',
+          padding: '24px 16px',
+        }}
+      >
+        <Space size={16} wrap style={{ justifyContent: 'center' }}>
+          <Link href="/seeker/jobs">Browse jobs</Link>
+          <Link href="/login">Log in</Link>
+          <Link href="/register">Create an account</Link>
+        </Space>
+        <div style={{ marginTop: 8, opacity: 0.65, fontSize: 13 }}>
+          Online Job Board &amp; Recruitment Platform · Group CC4 · COM311
+        </div>
+      </Layout.Footer>
     </Layout>
   );
 }

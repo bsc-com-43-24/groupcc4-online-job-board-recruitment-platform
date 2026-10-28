@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JobBoard · Online Job Board & Recruitment Platform
 
-## Getting Started
+Frontend for the COM311 group mini-project (Group CC4): a role-based job board where
+job seekers search and apply for vacancies, and employers post roles and manage
+applicants.
 
-First, run the development server:
+Built with **Next.js 16 (App Router)**, **React 19**, **Ant Design 6** and
+**lucide-react**. The project is frontend-only, so all data lives in a typed,
+browser-persisted mock store (`src/mock`).
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Other scripts:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Development server with HMR |
+| `npm run build` | Production build |
+| `npm start` | Serve the production build |
+| `npm run lint` | ESLint (flat config) |
+| `npm run typecheck` | `tsc --noEmit` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Demo accounts
 
-## Learn More
+The sign-in screen has a **“Fill demo credentials”** button. Passwords are `Demo1234`.
 
-To learn more about Next.js, take a look at the following resources:
+| Role | Email |
+| --- | --- |
+| Job seeker | `seeker@demo.com` |
+| Employer | `employer@demo.com` |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Two more employer accounts exist (`hr@demo.com`, `talent@demo.com`) so that a vacancy
+posted by one employer is not visible in another employer's dashboard.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Demo data is stored in `localStorage` under `cc4.jobboard.v1`. Use **Reset demo data**
+in the account menu to restore the seed.
 
-## Deploy on Vercel
+## Route map
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Public:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Route | Purpose |
+| --- | --- |
+| `/` | Landing page with search |
+| `/seeker/jobs` | Public vacancy search (filters, sorting, pagination) |
+| `/seeker/jobs/[id]` | Vacancy details; applying requires sign-in |
+| `/login`, `/register` | Authentication (role tabs) |
+
+Job seeker (signed in as `SEEKER`):
+
+| Route | Purpose |
+| --- | --- |
+| `/seeker/dashboard` | Application stats, recommendations, notifications |
+| `/seeker/applications` | Every application with a status timeline |
+| `/seeker/profile` | Profile form, skills, CV upload |
+
+Employer (signed in as `EMPLOYER`):
+
+| Route | Purpose |
+| --- | --- |
+| `/employer/dashboard` | Vacancy performance and latest applicants |
+| `/employer/jobs` | Manage vacancies (edit, close, reopen) |
+| `/employer/jobs/new` | Post a vacancy |
+| `/employer/jobs/[id]` | Vacancy details plus its applicants |
+| `/employer/applicants` | All applicants, filterable by vacancy |
+
+Legacy URLs (`/auth/login`, `/jobs`, `/job-seeker/home`, `/applications`, `/Employer/*`)
+are redirected by `src/proxy.ts`.
+
+## Architecture notes
+
+- `src/proxy.ts` handles route protection, role routing and legacy redirects. Session
+  state is read from cookies written in `src/services/session.ts`.
+- `src/mock/store.ts` is the single data source. Screens subscribe through
+  `src/hooks/useStore.ts`, which uses `useSyncExternalStore` so server-rendered HTML
+  and the hydrated client agree.
+- `src/mock/types.ts` defines the shared domain model, including one canonical
+  `ApplicationStatus` lifecycle used everywhere.
+- `src/services/api.ts` is the seam for a future backend: set `NEXT_PUBLIC_API_URL`
+  and the auth service calls real endpoints instead of the mock store.
+- Theme tokens live in `src/theme.ts`; Ant Design tokens are the only styling system
+  (no Tailwind).

@@ -1,380 +1,490 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import {
-  Card,
-  Typography,
-  Tag,
-  Button,
-  Space,
-  Divider,
-  message,
-  Modal,
-  Upload,
-  Row,
-  Col,
-  Avatar,
+  Alert,
+  App as AntApp,
   Breadcrumb,
+  Button,
+  Card,
+  Col,
+  Divider,
+  Input,
+  Modal,
+  Result,
+  Row,
+  Skeleton,
+  Space,
+  Tag,
+  Typography,
+  Upload,
 } from 'antd';
+import type { UploadProps } from 'antd';
 import {
   Briefcase,
-  MapPin,
-  DollarSign,
-  Clock,
-  Send,
-  UploadCloud,
-  CheckCircle2,
   Building2,
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  Download,
+  DollarSign,
+  MapPin,
+  Send,
   Share2,
-  Bookmark,
+  UploadCloud,
 } from 'lucide-react';
-import Link from 'next/link';
+import PageContainer from '@/components/PageContainer';
+import { ApplicationStatusTag } from '@/components/StatusTag';
+import { useHydrated } from '@/hooks/useHydrated';
+import { useJob, useJobApplications } from '@/hooks/useStore';
+import { formatDate, formatSalary, deadlineLabel, isDeadlinePassed } from '@/lib/format';
+import { applyToJob } from '@/mock/store';
+import { loginHref, useSession } from '@/services/session';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
+const MAX_CV_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_EXTENSIONS = /\.(pdf|docx?)$/i;
 
-// Types and contracts
+const uploadProps = (onReject: (reason: string) => void): UploadProps => ({
+  name: 'cv',
+  maxCount: 1,
+  accept: '.pdf,.doc,.docx',
+  multiple: false,
+  beforeUpload: (file) => {
+    const extensionAllowed = ACCEPTED_EXTENSIONS.test(file.name);
+    const typeAllowed =
+      !file.type ||
+      file.type === 'application/pdf' ||
+      file.type === 'application/msword' ||
+      file.type ===
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-export interface JobVacancy {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  type: string;
-  salary: string;
-  postedDate: string;
-  deadline: string;
-  description: string;
-  qualifications: string[];
-  requiredSkills: string[];
-}
+    if (!extensionAllowed || !typeAllowed) {
+      onReject('Attach a PDF or Word document.');
+      return Upload.LIST_IGNORE;
+    }
 
-interface JobHeaderProps {
-  job: JobVacancy;
-  onApplyClick: () => void;
-}
+    if (file.size > MAX_CV_BYTES) {
+      onReject('Your CV must be 5 MB or smaller.');
+      return Upload.LIST_IGNORE;
+    }
 
-interface JobSummaryProps {
-  job: JobVacancy;
-  onApplyClick: () => void;
-}
+    return false;
+  },
+});
 
-interface ApplyModalProps {
-  isOpen: boolean;
-  isSubmitting: boolean;
-  jobTitle: string;
-  companyName: string;
-  onClose: () => void;
-  onSubmit: () => void;
-}
-
-// 
-//Sample data to be replaced with backend content
-
-const MOCK_JOB_VACANCY: JobVacancy = {
-  id: 'job-101',
-  title: 'Senior Full Stack Developer',
-  company: 'TechCorp Solutions',
-  location: 'Blantyre, Malawi (Hybrid)',
-  type: 'Full-Time',
-  salary: 'MWK 2,500,000 - 3,500,000 / mo',
-  postedDate: '2 days ago',
-  deadline: 'Nov 15, 2026',
-  description:
-    'We are seeking a Senior Full Stack Developer to lead the development of our core recruitment and modern job board platform. In this role, you will collaborate with cross-functional team members in Group CC4 to build modular, secure, and highly scalable web applications.',
-  qualifications: [
-    'Bachelor’s degree in Computer Science, Software Engineering, or equivalent experience.',
-    '4+ years of professional experience with React and modern Node.js/Next.js frameworks.',
-    'Strong knowledge of TypeScript, RESTful APIs, and relational databases (PostgreSQL).',
-    'Demonstrated experience with modern UI frameworks (Ant Design, Tailwind) and containerization (Docker).',
-  ],
-  requiredSkills: ['Next.js', 'React', 'TypeScript', 'Node.js', 'Ant Design', 'Docker', 'PostgreSQL'],
-};
-
-
-//sub components
-
-
-/**
- * Top Header Banner containing title, company avatar, action buttons, and visual tags
- */
-const JobHeader: React.FC<JobHeaderProps> = ({ job, onApplyClick }) => (
-  <Card
-    variant="borderless"
-    style={{
-      boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-      borderRadius: 12,
-      marginBottom: 24,
-      background: '#ffffff',
-    }}
-  >
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-        <Avatar
-          size={64}
-          style={{ backgroundColor: '#1677ff', fontSize: 24, fontWeight: 'bold' }}
-          icon={<Building2 size={32} />}
-        >
-          TC
-        </Avatar>
-        <div>
-          <Title level={2} style={{ margin: 0 }}>
-            {job.title}
-          </Title>
-          <Text type="secondary" style={{ fontSize: 16 }}>
-            {job.company}
-          </Text>
-        </div>
-      </div>
-
-      <Space wrap>
-        <Button icon={<Bookmark size={16} />}>Save</Button>
-        <Button icon={<Share2 size={16} />}>Share</Button>
-        <Button type="primary" size="large" icon={<Send size={16} />} onClick={onApplyClick}>
-          Apply Now
-        </Button>
-      </Space>
+function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <Text type="secondary" style={{ display: 'block', fontSize: 12, letterSpacing: 0.4 }}>
+        {label.toUpperCase()}
+      </Text>
+      <Text strong style={{ fontSize: 15 }}>
+        {value}
+      </Text>
     </div>
+  );
+}
 
-    <Space size={[12, 8]} wrap style={{ marginTop: 24 }}>
-      <Tag icon={<MapPin size={12} />} color="blue" style={{ padding: '4px 10px', borderRadius: 4 }}>
-        {job.location}
-      </Tag>
-      <Tag icon={<Briefcase size={12} />} color="cyan" style={{ padding: '4px 10px', borderRadius: 4 }}>
-        {job.type}
-      </Tag>
-      <Tag icon={<DollarSign size={12} />} color="green" style={{ padding: '4px 10px', borderRadius: 4 }}>
-        {job.salary}
-      </Tag>
-      <Tag icon={<Clock size={12} />} style={{ padding: '4px 10px', borderRadius: 4 }}>
-        Posted {job.postedDate}
-      </Tag>
-    </Space>
-  </Card>
-);
-
-/**
- * Sticky Sidebar displaying key job details and CTA
- */
-const JobSummarySidebar: React.FC<JobSummaryProps> = ({ job, onApplyClick }) => {
-  const summaryItems = [
-    { label: 'EMPLOYER', value: job.company },
-    { label: 'LOCATION', value: job.location },
-    { label: 'SALARY RANGE', value: job.salary, highlight: true },
-    { label: 'APPLICATION DEADLINE', value: job.deadline },
-  ];
+function SkillList({ skills }: { skills: string[] }) {
+  if (!skills.length) {
+    return <Text type="secondary">No specific skills listed.</Text>;
+  }
 
   return (
-    <Card
-      variant="borderless"
-      style={{
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        borderRadius: 12,
-        background: '#fafafa',
-      }}
-    >
-      <Title level={4} style={{ marginBottom: 16 }}>
-        Job Summary
-      </Title>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {summaryItems.map((item) => (
-          <div key={item.label}>
-            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-              {item.label}
-            </Text>
-            <Text strong style={{ fontSize: 15, color: item.highlight ? '#3f8600' : 'inherit' }}>
-              {item.value}
-            </Text>
-          </div>
-        ))}
-      </div>
-
-      <Divider style={{ margin: '20px 0' }} />
-
-      <Button
-        type="primary"
-        size="large"
-        block
-        icon={<Send size={16} />}
-        onClick={onApplyClick}
-        style={{ borderRadius: 8 }}
-      >
-        Apply For Position
-      </Button>
-    </Card>
+    <Space size={[8, 8]} wrap>
+      {skills.map((skill) => (
+        <Tag key={skill} color="processing" style={{ padding: '4px 12px', borderRadius: 999 }}>
+          {skill}
+        </Tag>
+      ))}
+    </Space>
   );
-};
+}
 
-/**
- * Bulleted qualifications list with check icons
- */
-const QualificationsList: React.FC<{ items: string[] }> = ({ items }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-    {items.map((req, idx) => (
-      <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <CheckCircle2 size={18} color="#52c41a" style={{ marginTop: 3, flexShrink: 0 }} />
-        <Text style={{ fontSize: 15, lineHeight: 1.6, color: '#434343' }}>{req}</Text>
-      </div>
-    ))}
-  </div>
-);
+function BulletList({ items }: { items: string[] }) {
+  if (!items.length) {
+    return <Text type="secondary">Not specified for this role.</Text>;
+  }
 
-/**
- * Application Modal with drag-and-drop CV uploader
- */
-const ApplyModal: React.FC<ApplyModalProps> = ({
-  isOpen,
-  isSubmitting,
-  jobTitle,
-  companyName,
-  onClose,
-  onSubmit,
-}) => (
-  <Modal
-    title={`Apply for ${jobTitle}`}
-    open={isOpen}
-    onCancel={onClose}
-    footer={[
-      <Button key="cancel" onClick={onClose}>
-        Cancel
-      </Button>,
-      <Button
-        key="submit"
-        type="primary"
-        loading={isSubmitting}
-        icon={<Send size={14} />}
-        onClick={onSubmit}
-      >
-        Submit Application
-      </Button>,
-    ]}
-  >
-    <Paragraph type="secondary" style={{ marginBottom: 20 }}>
-      Upload your CV/Resume to apply directly to {companyName}.
-    </Paragraph>
+  return (
+    <ul style={{ margin: 0, paddingInlineStart: 20, lineHeight: 1.8 }}>
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  );
+}
 
-    <Upload.Dragger name="cv" maxCount={1} beforeUpload={() => false}>
-      <p style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-        <UploadCloud size={40} color="#1677ff" />
-      </p>
-      <p className="ant-upload-text">Click or drag CV file to this area to Upload</p>
-      <p className="ant-upload-hint">Supports PDF, DOCX up to 5MB.</p>
-    </Upload.Dragger>
-  </Modal>
-);
+function JobNotFound() {
+  return (
+    <PageContainer maxWidth={720}>
+      <Result
+        status="404"
+        title="This vacancy is no longer available"
+        subTitle="It may have been removed or the link may be out of date."
+        extra={[
+          <Link href="/seeker/jobs" key="browse">
+            <Button type="primary">Browse open vacancies</Button>
+          </Link>,
+        ]}
+      />
+    </PageContainer>
+  );
+}
 
+export default function JobDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const session = useSession();
+  const hydrated = useHydrated();
+  const { message } = AntApp.useApp();
 
-// main component page
+  const job = useJob(params?.id);
+  const applications = useJobApplications(job?.id);
+  const myApplication = applications.find(
+    (application) => application.seekerId === session?.userId,
+  );
 
-export default function JobDetailsPage() {
-  const [messageApi, contextHolder] = message.useMessage();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [cvName, setCvName] = useState<string | null>(null);
+  const [coverLetter, setCoverLetter] = useState('');
+  const [uploadKey, setUploadKey] = useState(0);
 
-  const handleOpenModal = () => setIsModalOpen(true);
-  const handleCloseModal = () => setIsModalOpen(false);
+  if (!job) {
+    if (!hydrated) {
+      return (
+        <PageContainer maxWidth={1100}>
+          <Skeleton active paragraph={{ rows: 8 }} />
+        </PageContainer>
+      );
+    }
+    return <JobNotFound />;
+  }
 
-  const handleSubmitApplication = () => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsModalOpen(false);
-      messageApi.success('Application & CV submitted successfully!');
-    }, 1200);
+  const closed =
+    job.status !== 'Active' || isDeadlinePassed(job.deadline);
+
+  const resetModal = () => {
+    setCvName(null);
+    setCoverLetter('');
+    setUploadKey((key) => key + 1);
   };
 
+  const openApply = () => {
+    if (!session) {
+      router.push(loginHref(`/seeker/jobs/${job.id}`));
+      return;
+    }
+    resetModal();
+    setModalOpen(true);
+  };
+
+  const handleShare = async () => {
+    const url = typeof window === 'undefined' ? '' : window.location.href;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: job.title, text: job.summary, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      message.success('Job link copied to your clipboard.');
+    } catch {
+      message.info('Copy the address bar to share this vacancy.');
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!session) {
+      setModalOpen(false);
+      router.push(loginHref(`/seeker/jobs/${job.id}`));
+      return;
+    }
+
+    if (!cvName) {
+      message.error('Attach your CV before submitting.');
+      return;
+    }
+
+    setSubmitting(true);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const application = applyToJob({
+      job,
+      seekerId: session.userId,
+      seekerName: session.name,
+      seekerEmail: session.email,
+      coverLetter: coverLetter.trim() || undefined,
+      cvName,
+    });
+
+    setSubmitting(false);
+    setModalOpen(false);
+
+    if (!application) {
+      message.info('You have already applied to this vacancy.');
+      return;
+    }
+
+    message.success('Application submitted. Track its progress under My applications.');
+    resetModal();
+  };
+
+  const applyBlock = myApplication ? (
+    <Alert
+      type="success"
+      showIcon
+      message="Application submitted"
+      description={
+        <Space direction="vertical" size={4}>
+          <Text>
+            You applied on {formatDate(myApplication.appliedAt)}.
+          </Text>
+          <Space size={8}>
+            <Text>Status:</Text>
+            <ApplicationStatusTag status={myApplication.status} />
+          </Space>
+        </Space>
+      }
+    />
+  ) : closed ? (
+    <Alert
+      type="warning"
+      showIcon
+      message="Applications are closed"
+      description={
+        job.status === 'Closed'
+          ? 'This vacancy has been closed by the employer.'
+          : `The deadline was ${formatDate(job.deadline)}.`
+      }
+    />
+  ) : (
+    <Button type="primary" size="large" block onClick={openApply} icon={<Send size={16} aria-hidden />}>
+      Apply for this position
+    </Button>
+  );
+
   return (
-    <div style={{ maxWidth: 1100, margin: '24px auto', padding: '0 20px' }}>
-      {contextHolder}
+    <PageContainer maxWidth={1150}>
+      <Breadcrumb
+        style={{ marginBottom: 16 }}
+        items={[
+          { title: <Link href="/">Home</Link> },
+          { title: <Link href="/seeker/jobs">Browse jobs</Link> },
+          { title: job.title },
+        ]}
+      />
 
-      {/* Navigation Breadcrumb */}
-      <div style={{ marginBottom: 20 }}>
-        <Breadcrumb
-          items={[
-            { title: <Link href="/">Home</Link> },
-            { title: <Link href="/seeker/jobs">Job Search</Link> },
-            { title: MOCK_JOB_VACANCY.title },
-          ]}
-        />
-      </div>
+      <Card style={{ marginBottom: 20 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 16,
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Space size={16} align="start">
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 56,
+                height: 56,
+                borderRadius: 14,
+                background: 'rgba(37, 99, 235, 0.12)',
+                color: '#2563eb',
+                flexShrink: 0,
+              }}
+            >
+              <Building2 size={26} />
+            </span>
+            <div>
+              <Title level={2} style={{ margin: 0 }}>
+                {job.title}
+              </Title>
+              <Text type="secondary" style={{ fontSize: 16 }}>
+                {job.company} · {job.location}
+              </Text>
+            </div>
+          </Space>
 
-      {/* Top Banner Header */}
-      <JobHeader job={MOCK_JOB_VACANCY} onApplyClick={handleOpenModal} />
+          <Space wrap>
+            <Button icon={<Share2 size={16} aria-hidden />} onClick={handleShare}>
+              Share
+            </Button>
+            {!myApplication && !closed ? (
+              <Button type="primary" icon={<Send size={16} aria-hidden />} onClick={openApply}>
+                Apply now
+              </Button>
+            ) : null}
+          </Space>
+        </div>
 
-      {/* Main Grid Content */}
+        <Space size={[8, 8]} wrap style={{ marginTop: 20 }}>
+          <Tag icon={<MapPin size={12} aria-hidden />} color="blue">
+            {job.location}
+          </Tag>
+          <Tag icon={<Briefcase size={12} aria-hidden />} color="cyan">
+            {job.type}
+          </Tag>
+          <Tag color="geekblue">{job.workMode}</Tag>
+          <Tag icon={<DollarSign size={12} aria-hidden />} color="green">
+            {formatSalary(job.currency, job.salaryMin, job.salaryMax)}
+          </Tag>
+          <Tag icon={<Clock size={12} aria-hidden />}>Posted {formatDate(job.postedAt)}</Tag>
+          <Tag icon={<CalendarClock size={12} aria-hidden />} color={closed ? 'red' : 'gold'}>
+            {deadlineLabel(job.deadline)}
+          </Tag>
+        </Space>
+      </Card>
+
       <Row gutter={[24, 24]}>
-        {/* Left Column: Job Content */}
         <Col xs={24} lg={16}>
-          <Card
-            variant="borderless"
-            style={{
-              boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-              borderRadius: 12,
-            }}
-          >
-            {/* Description Section */}
-            <section style={{ marginBottom: 32 }}>
-              <Title level={4} style={{ color: '#1f1f1f', marginBottom: 12 }}>
-                Job Overview
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Card>
+              <Title level={4} style={{ marginTop: 0 }}>
+                Job overview
               </Title>
-              <Paragraph style={{ fontSize: 15, lineHeight: 1.8, color: '#434343' }}>
-                {MOCK_JOB_VACANCY.description}
+              <Paragraph style={{ marginBottom: 0, lineHeight: 1.8 }}>
+                {job.description}
               </Paragraph>
-            </section>
+            </Card>
 
-            <Divider style={{ margin: '24px 0' }} />
-
-            {/* Skills Section */}
-            <section style={{ marginBottom: 32 }}>
-              <Title level={4} style={{ color: '#1f1f1f', marginBottom: 12 }}>
-                Required Skills & Tech Stack
+            <Card>
+              <Title level={4} style={{ marginTop: 0 }}>
+                What you will do
               </Title>
-              <Space size={[8, 10]} wrap>
-                {MOCK_JOB_VACANCY.requiredSkills.map((skill) => (
-                  <Tag
-                    key={skill}
-                    color="processing"
-                    style={{
-                      fontSize: 14,
-                      padding: '6px 14px',
-                      borderRadius: 16,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {skill}
-                  </Tag>
-                 ))}
+              <BulletList items={job.responsibilities} />
+            </Card>
+
+            <Card>
+              <Title level={4} style={{ marginTop: 0 }}>
+                Qualifications and requirements
+              </Title>
+              <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                {job.qualifications.length ? (
+                  job.qualifications.map((item) => (
+                    <Space key={item} align="start" size={10}>
+                      <CheckCircle2
+                        size={18}
+                        color="#16a34a"
+                        aria-hidden
+                        style={{ marginTop: 3, flexShrink: 0 }}
+                      />
+                      <Text style={{ lineHeight: 1.7 }}>{item}</Text>
+                    </Space>
+                  ))
+                ) : (
+                  <Text type="secondary">Not specified for this role.</Text>
+                )}
               </Space>
-            </section>
+            </Card>
 
-            <Divider style={{ margin: '24px 0' }} />
-
-            {/* Qualifications Section */}
-            <section style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ color: '#1f1f1f', marginBottom: 16 }}>
-                Qualifications & Key Requirements
+            <Card>
+              <Title level={4} style={{ marginTop: 0 }}>
+                Skills
               </Title>
-              <QualificationsList items={MOCK_JOB_VACANCY.qualifications} />
-            </section>
-          </Card>
+              <SkillList skills={job.skills} />
+            </Card>
+          </Space>
         </Col>
 
-        {/* Right Column: Sticky Sidebar */}
         <Col xs={24} lg={8}>
-          <JobSummarySidebar job={MOCK_JOB_VACANCY} onApplyClick={handleOpenModal} />
+          <div id="job-summary" style={{ position: 'sticky', top: 88 }}>
+            <Card>
+              <Title level={4} style={{ marginTop: 0, marginBottom: 16 }}>
+                Job summary
+              </Title>
+
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <SummaryRow label="Employer" value={job.company} />
+                <SummaryRow label="Location" value={job.location} />
+                <SummaryRow label="Work mode" value={job.workMode} />
+                <SummaryRow
+                  label="Salary"
+                  value={formatSalary(job.currency, job.salaryMin, job.salaryMax)}
+                />
+                <SummaryRow label="Application deadline" value={formatDate(job.deadline)} />
+              </Space>
+
+              <Divider style={{ margin: '20px 0' }} />
+
+              {applyBlock}
+
+              <Text
+                type="secondary"
+                style={{ display: 'block', marginTop: 12, fontSize: 12, textAlign: 'center' }}
+              >
+                You can withdraw or update your CV from My applications.
+              </Text>
+            </Card>
+          </div>
         </Col>
       </Row>
 
-      {/* Application Modal */}
-      <ApplyModal
-        isOpen={isModalOpen}
-        isSubmitting={isSubmitting}
-        jobTitle={MOCK_JOB_VACANCY.title}
-        companyName={MOCK_JOB_VACANCY.company}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmitApplication}
-      />
-    </div>
-  );
+      <Modal
+        title={`Apply for ${job.title}`}
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        okText="Submit application"
+        okButtonProps={{ loading: submitting, disabled: !cvName }}
+        onOk={handleSubmit}
+        destroyOnHidden
+      >
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Text type="secondary">
+            {job.company} will receive your CV and the details on your profile.
+          </Text>
 
+          <div>
+            <Text strong>Upload your CV</Text>
+            <Upload.Dragger
+              key={uploadKey}
+              {...uploadProps((reason) => message.error(reason))}
+              onChange={({ fileList }) => {
+                setCvName(fileList[0]?.name ?? null);
+              }}
+              style={{ marginTop: 8 }}
+            >
+              <p style={{ margin: 0 }}>
+                <UploadCloud size={28} aria-hidden color="#2563eb" />
+              </p>
+              <p className="ant-upload-text">Click or drag your CV here</p>
+              <p className="ant-upload-hint">PDF or Word document, up to 5 MB.</p>
+            </Upload.Dragger>
+          </div>
+
+          <div>
+            <Text strong>Cover letter (optional)</Text>
+            <Input.TextArea
+              rows={4}
+              style={{ marginTop: 8 }}
+              placeholder="Tell the employer why you are a good fit."
+              value={coverLetter}
+              onChange={(event) => setCoverLetter(event.target.value)}
+              maxLength={800}
+              showCount
+            />
+          </div>
+
+          {cvName ? (
+            <Text type="secondary">
+              <Download size={14} aria-hidden /> Attached: {cvName}
+            </Text>
+          ) : (
+            <Text type="secondary">A CV is required before you can submit.</Text>
+          )}
+        </Space>
+      </Modal>
+    </PageContainer>
+  );
 }
