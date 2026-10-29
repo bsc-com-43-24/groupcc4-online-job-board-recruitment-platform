@@ -233,7 +233,7 @@ export default function SeekerApplicationsPage() {
         title={selectedJob?.title ?? 'Application details'}
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
-        width={440}
+        size="default"
       >
         {selected ? (
           <Space direction="vertical" size={20} style={{ width: '100%' }}>
