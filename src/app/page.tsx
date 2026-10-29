@@ -136,7 +136,7 @@ export default function HomePage() {
             </p>
           </div>
           <Link href="/seeker/jobs">
-            <Button icon={<ArrowRight size={16} aria-hidden />} iconPosition="end">
+            <Button icon={<ArrowRight size={16} aria-hidden />} iconPlacement="end">
               Browse all jobs
             </Button>
           </Link>
