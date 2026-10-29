@@ -60,42 +60,10 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  const token = request.cookies.get('token')?.value;
-  const role = request.cookies.get('user_role')?.value;
-
-  const isPublic =
-    PUBLIC_EXACT.includes(pathname) ||
-    PUBLIC_PREFIX.some((prefix) => matchesPrefix(pathname, prefix));
-
-  // 2. Anonymous visitors are sent to sign in and returned to where they were.
-  if (!token && !isPublic) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', `${pathname}${search}`);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // 3. Signed-in visitors should not see the auth screens again.
-  if (token && (pathname === '/login' || pathname === '/register')) {
-    return NextResponse.redirect(new URL(homeFor(role), request.url));
-  }
-
-  // 4. Cross-role navigation says why it happened instead of silently looping.
-  const isPrivateSeekerRoute =
-    matchesPrefix(pathname, '/seeker') &&
-    !PUBLIC_PREFIX.some((prefix) => matchesPrefix(pathname, prefix));
-
-  if (token && role === 'EMPLOYER' && isPrivateSeekerRoute) {
-    return NextResponse.redirect(
-      new URL('/employer/dashboard?denied=1', request.url),
-    );
-  }
-
-  if (token && role === 'SEEKER' && matchesPrefix(pathname, '/employer')) {
-    return NextResponse.redirect(
-      new URL('/seeker/dashboard?denied=1', request.url),
-    );
-  }
-
+  // This demo stores auth state per browser tab in sessionStorage, so a shared
+  // cookie-based gate would make separate tabs overwrite each other. The server
+  // middleware therefore only normalises legacy routes and leaves the demo
+  // experience tab-local.
   return NextResponse.next();
 }
 
