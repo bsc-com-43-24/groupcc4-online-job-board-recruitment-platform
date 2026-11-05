@@ -11,7 +11,7 @@ import {
   Space,
   Typography,
 } from 'antd';
-import { Plus, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
 import ApplicantsTable from '@/components/employer/ApplicantsTable';
@@ -77,11 +77,6 @@ export default function EmployerApplicantsPage() {
               ...jobs.map((job) => ({ value: job.id, label: job.title })),
             ]}
           />
-          <Link href="/employer/jobs/new">
-            <Button type="primary" icon={<Plus size={16} aria-hidden />}>
-              Post a job
-            </Button>
-          </Link>
         </Space>
       </Space>
 

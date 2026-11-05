@@ -17,7 +17,7 @@ import {
   Typography,
 } from 'antd';
 import type { TableProps } from 'antd';
-import { BriefcaseBusiness, Plus, Users } from 'lucide-react';
+import { BriefcaseBusiness, Users } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
 import { ApplicationStatusTag, JobStatusTag } from '@/components/StatusTag';
@@ -167,11 +167,6 @@ export default function EmployerDashboardPage() {
           </Col>
           <Col>
             <Space wrap>
-              <Link href="/employer/jobs/new">
-                <Button type="primary" icon={<Plus size={16} aria-hidden />}>
-                  Post a job
-                </Button>
-              </Link>
               <Link href="/employer/applicants">
                 <Button ghost icon={<Users size={16} aria-hidden />}>
                   View applicants
@@ -218,13 +213,7 @@ export default function EmployerDashboardPage() {
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description="You haven't posted a vacancy yet."
-              >
-                <Link href="/employer/jobs/new">
-                  <Button type="primary" icon={<Plus size={16} aria-hidden />}>
-                    Post your first job
-                  </Button>
-                </Link>
-              </Empty>
+              />
             )}
           </Card>
         </Col>
