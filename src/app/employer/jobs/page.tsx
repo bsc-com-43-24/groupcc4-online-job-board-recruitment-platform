@@ -15,7 +15,7 @@ import {
   Typography,
 } from 'antd';
 import type { TableProps } from 'antd';
-import { Pencil, Plus } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import { JobStatusTag } from '@/components/StatusTag';
 import JobForm, { toJobPatch } from '@/components/employer/JobForm';
@@ -158,11 +158,6 @@ export default function EmployerJobsPage() {
             Manage every vacancy you have posted, and open one to review its applicants.
           </Text>
         </div>
-        <Link href="/employer/jobs/new">
-          <Button type="primary" icon={<Plus size={16} aria-hidden />}>
-            Post a job
-          </Button>
-        </Link>
       </Space>
 
       <Card>
@@ -178,13 +173,7 @@ export default function EmployerJobsPage() {
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description="You haven't posted a vacancy yet."
-          >
-            <Link href="/employer/jobs/new">
-              <Button type="primary" icon={<Plus size={16} aria-hidden />}>
-                Post your first job
-              </Button>
-            </Link>
-          </Empty>
+          />
         )}
       </Card>
 
