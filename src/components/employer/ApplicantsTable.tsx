@@ -7,8 +7,8 @@ import {
   Button,
   Descriptions,
   Drawer,
-  Empty,
   Input,
+  Popconfirm,
   Select,
   Space,
   Table,
@@ -17,7 +17,15 @@ import {
 import type { TableProps } from 'antd';
 import { FileText } from 'lucide-react';
 import { ApplicationStatusTag } from '@/components/StatusTag';
-import { setApplicationStatus } from '@/mock/store';
+import InterviewDetails from '@/components/InterviewDetails';
+import InterviewForm from '@/components/employer/InterviewForm';
+import EmptyState from '@/components/ui/EmptyState';
+import {
+  cancelInterview,
+  scheduleInterview,
+  setApplicationStatus,
+  updateInterview,
+} from '@/mock/store';
 import { formatDate } from '@/lib/format';
 import {
   APPLICATION_STATUSES,
@@ -51,6 +59,7 @@ export default function ApplicantsTable({
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [interviewFormOpen, setInterviewFormOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -82,8 +91,48 @@ export default function ApplicantsTable({
   const selected = applications.find((item) => item.id === selectedId) ?? null;
 
   const changeStatus = (application: Application, status: ApplicationStatus) => {
-    setApplicationStatus(application.id, status);
-    message.success(`${application.seekerName} moved to ${status}.`);
+    try {
+      setApplicationStatus(application.id, status);
+      message.success(`${application.seekerName} moved to ${status}.`);
+    } catch {
+      message.error('Could not update the application status. Please try again.');
+    }
+  };
+
+  const saveInterview = (
+    application: Application,
+    interview: Parameters<typeof scheduleInterview>[1],
+  ): boolean => {
+    try {
+      const saved =
+        application.interview?.status === 'Scheduled'
+          ? updateInterview(application.id, interview)
+          : scheduleInterview(application.id, interview);
+
+      if (saved) {
+        message.success(
+          application.interview?.status === 'Scheduled'
+            ? 'Interview updated. The applicant has been notified.'
+            : 'Interview scheduled. The applicant has been notified.',
+        );
+      }
+      return saved;
+    } catch {
+      message.error('Could not save the interview. Please try again.');
+      return false;
+    }
+  };
+
+  const handleCancelInterview = (application: Application) => {
+    try {
+      if (cancelInterview(application.id)) {
+        message.success('Interview cancelled. The applicant has been notified.');
+      } else {
+        message.error('This interview is no longer scheduled.');
+      }
+    } catch {
+      message.error('Could not cancel this interview. Please try again.');
+    }
   };
 
   const columns: TableProps<Application>['columns'] = [
@@ -184,16 +233,17 @@ export default function ApplicantsTable({
         pagination={filtered.length > 8 ? { pageSize: 8 } : false}
         scroll={{ x: 720 }}
         locale={{
-          emptyText: (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyDescription} />
-          ),
+          emptyText: <EmptyState title={emptyDescription} />,
         }}
       />
 
       <Drawer
         title={selected ? selected.seekerName : 'Applicant'}
         open={Boolean(selected)}
-        onClose={() => setSelectedId(null)}
+        onClose={() => {
+          setSelectedId(null);
+          setInterviewFormOpen(false);
+        }}
         size="large"
       >
         {selected ? (
@@ -231,6 +281,45 @@ export default function ApplicantsTable({
             )}
 
             <div>
+              <Space style={{ justifyContent: 'space-between', width: '100%' }} wrap>
+                <Text strong>Interview</Text>
+                {selected.interview?.status === 'Scheduled' ? (
+                  <Space size={4}>
+                    <Button type="link" onClick={() => setInterviewFormOpen(true)}>
+                      Edit
+                    </Button>
+                    <Popconfirm
+                      title="Cancel this interview?"
+                      description="The job seeker will be notified."
+                      okText="Cancel interview"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => handleCancelInterview(selected)}
+                    >
+                      <Button type="link" danger>
+                        Cancel interview
+                      </Button>
+                    </Popconfirm>
+                  </Space>
+                ) : selected.status === 'Shortlisted' ? (
+                  <Button type="primary" onClick={() => setInterviewFormOpen(true)}>
+                    Schedule interview
+                  </Button>
+                ) : null}
+              </Space>
+              {selected.interview ? (
+                <div style={{ marginTop: 10 }}>
+                  <InterviewDetails interview={selected.interview} />
+                </div>
+              ) : (
+                <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+                  {selected.status === 'Shortlisted'
+                    ? 'No interview has been scheduled yet.'
+                    : 'Interviews can be scheduled once an applicant is shortlisted.'}
+                </Text>
+              )}
+            </div>
+
+            <div>
               <Text strong>Move to</Text>
               <Space wrap size={8} style={{ marginTop: 10 }}>
                 {APPLICATION_STATUSES.filter(
@@ -256,6 +345,17 @@ export default function ApplicantsTable({
           </Space>
         ) : null}
       </Drawer>
+
+      {selected ? (
+        <InterviewForm
+          key={`${selected.id}-${selected.interview?.status ?? 'new'}`}
+          open={interviewFormOpen}
+          applicantName={selected.seekerName}
+          interview={selected.interview}
+          onClose={() => setInterviewFormOpen(false)}
+          onSave={(interview) => saveInterview(selected, interview)}
+        />
+      ) : null}
     </>
   );
 }

@@ -25,6 +25,8 @@ import {
 import { authService } from '@/services/authService';
 import type { Role } from '@/mock/types';
 import { roleHome } from '@/services/session';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 
 const { Title, Text } = Typography;
 
@@ -290,8 +292,10 @@ function RegisterContent() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 48, textAlign: 'center' }}>Loading…</div>}>
-      <RegisterContent />
-    </Suspense>
+    <ProtectedRoute guestOnly>
+      <Suspense fallback={<PageSkeleton rows={7} />}>
+        <RegisterContent />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

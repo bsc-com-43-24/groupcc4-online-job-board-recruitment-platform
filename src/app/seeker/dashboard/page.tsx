@@ -8,11 +8,9 @@ import {
   Button,
   Card,
   Col,
-  Empty,
   List,
   Progress,
   Row,
-  Skeleton,
   Space,
   Statistic,
   Tag,
@@ -28,8 +26,10 @@ import {
 } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
+import EmptyState from '@/components/ui/EmptyState';
 import { ApplicationStatusTag } from '@/components/StatusTag';
 import NotificationsPanel from '@/components/NotificationsPanel';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import { useHydrated } from '@/hooks/useHydrated';
 import {
   useJobs,
@@ -109,7 +109,7 @@ export default function SeekerDashboardPage() {
   if (!hydrated) {
     return (
       <PageContainer>
-        <Skeleton active paragraph={{ rows: 10 }} />
+        <PageSkeleton rows={10} />
       </PageContainer>
     );
   }
@@ -302,14 +302,15 @@ export default function SeekerDashboardPage() {
                 }}
               />
             ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="You haven't applied to any jobs yet."
-              >
+              <EmptyState
+                title="You haven't applied to any jobs yet"
+                description="Explore current vacancies and submit your first application."
+                action={
                 <Link href="/seeker/jobs">
                   <Button type="primary">Find your first role</Button>
                 </Link>
-              </Empty>
+                }
+              />
             )}
           </Card>
 
@@ -342,8 +343,8 @@ export default function SeekerDashboardPage() {
                 )}
               />
             ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              <EmptyState
+                title="You're all caught up"
                 description="You have applied to every open vacancy. Nice work."
               />
             )}

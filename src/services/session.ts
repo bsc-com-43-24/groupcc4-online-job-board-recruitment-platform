@@ -25,6 +25,8 @@ export interface Session {
 }
 
 const SESSION_STORAGE_KEY = 'demo_session';
+const LOCAL_TOKEN_KEY = 'token';
+const LOCAL_ROLE_KEY = 'role';
 
 function readSessionFromStorage(): Session | null {
   if (typeof window === 'undefined') {
@@ -79,6 +81,8 @@ export function persistSession(session: Session, token = 'mock-jwt-token'): void
 
   if (typeof window !== 'undefined') {
     window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+    window.localStorage.setItem(LOCAL_TOKEN_KEY, token);
+    window.localStorage.setItem(LOCAL_ROLE_KEY, session.role);
   }
 
   Cookies.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
@@ -92,6 +96,8 @@ export function persistSession(session: Session, token = 'mock-jwt-token'): void
 export function clearSession(): void {
   if (typeof window !== 'undefined') {
     window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    window.localStorage.removeItem(LOCAL_TOKEN_KEY);
+    window.localStorage.removeItem(LOCAL_ROLE_KEY);
   }
 
   [SESSION_COOKIE, ROLE_COOKIE, NAME_COOKIE, EMAIL_COOKIE, ID_COOKIE].forEach(

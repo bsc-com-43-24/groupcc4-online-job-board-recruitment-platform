@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd';
 import { LockOutlined } from '@ant-design/icons';
 import { authService } from '@/services/authService';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 
 const { Title, Text } = Typography;
 
@@ -147,7 +148,7 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 48, textAlign: 'center' }}>Loading...</div>}>
+    <Suspense fallback={<PageSkeleton rows={5} />}>
       <ResetPasswordContent />
     </Suspense>
   );

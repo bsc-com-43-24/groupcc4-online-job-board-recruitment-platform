@@ -7,8 +7,6 @@ import {
   Button,
   Card,
   Drawer,
-  Empty,
-  Skeleton,
   Space,
   Table,
   Tag,
@@ -17,6 +15,8 @@ import {
 import type { TableProps } from 'antd';
 import { Pencil } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
+import EmptyState from '@/components/ui/EmptyState';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import { JobStatusTag } from '@/components/StatusTag';
 import JobForm, { toJobPatch } from '@/components/employer/JobForm';
 import type { JobFormValues } from '@/components/employer/JobForm';
@@ -62,18 +62,27 @@ export default function EmployerJobsPage() {
     }
 
     setSaving(true);
-    updateJob(editing.id, toJobPatch(values, status));
-    setSaving(false);
-    setEditing(null);
-    message.success(status === 'Active' ? 'Vacancy updated.' : 'Vacancy saved as draft.');
+    try {
+      updateJob(editing.id, toJobPatch(values, status));
+      setEditing(null);
+      message.success(status === 'Active' ? 'Vacancy updated.' : 'Vacancy saved as draft.');
+    } catch {
+      message.error('Could not save this vacancy. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleStatus = (job: Job) => {
     const nextStatus = job.status === 'Closed' ? 'Active' : 'Closed';
-    updateJob(job.id, { status: nextStatus });
-    message.success(
-      nextStatus === 'Closed' ? 'Vacancy closed to new applications.' : 'Vacancy reopened.',
-    );
+    try {
+      updateJob(job.id, { status: nextStatus });
+      message.success(
+        nextStatus === 'Closed' ? 'Vacancy closed to new applications.' : 'Vacancy reopened.',
+      );
+    } catch {
+      message.error('Could not update this vacancy. Please try again.');
+    }
   };
 
   const columns: TableProps<JobRow>['columns'] = [
@@ -139,7 +148,7 @@ export default function EmployerJobsPage() {
   if (!hydrated) {
     return (
       <PageContainer maxWidth={1180}>
-        <Skeleton active paragraph={{ rows: 8 }} />
+        <PageSkeleton rows={8} />
       </PageContainer>
     );
   }
@@ -170,9 +179,14 @@ export default function EmployerJobsPage() {
             scroll={{ x: 820 }}
           />
         ) : (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="You haven't posted a vacancy yet."
+          <EmptyState
+            title="You haven't posted a vacancy yet"
+            description="Post your first vacancy to start receiving applications."
+            action={
+              <Link href="/employer/jobs/new">
+                <Button type="primary">Post a vacancy</Button>
+              </Link>
+            }
           />
         )}
       </Card>

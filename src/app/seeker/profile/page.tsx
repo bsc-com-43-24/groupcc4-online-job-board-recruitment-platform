@@ -13,7 +13,6 @@ import {
   Progress,
   Row,
   Select,
-  Skeleton,
   Space,
   Typography,
   Upload,
@@ -22,6 +21,7 @@ import type { UploadProps } from 'antd';
 import { IdCard, Mail, MapPin, Phone, UploadCloud, UserRound } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useProfile } from '@/hooks/useStore';
 import { saveProfile } from '@/mock/store';
@@ -87,7 +87,7 @@ export default function SeekerProfilePage() {
   if (!hydrated || !session) {
     return (
       <PageContainer maxWidth={980}>
-        <Skeleton active paragraph={{ rows: 10 }} />
+        <PageSkeleton rows={10} />
       </PageContainer>
     );
   }
@@ -146,24 +146,29 @@ export default function SeekerProfilePage() {
 
   const handleFinish = async (values: ProfileFormValues) => {
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-    saveProfile({
-      userId: session.userId,
-      email: session.email,
-      fullName: values.fullName,
-      headline: values.headline ?? '',
-      phone: values.phone ?? '',
-      location: values.location ?? '',
-      skills: values.skills ?? [],
-      education: values.education ?? '',
-      experience: values.experience ?? '',
-      cvName: cvName ?? undefined,
-      profilePicture: profilePicture ?? undefined,
-    });
+      saveProfile({
+        userId: session.userId,
+        email: session.email,
+        fullName: values.fullName,
+        headline: values.headline ?? '',
+        phone: values.phone ?? '',
+        location: values.location ?? '',
+        skills: values.skills ?? [],
+        education: values.education ?? '',
+        experience: values.experience ?? '',
+        cvName: cvName ?? undefined,
+        profilePicture: profilePicture ?? undefined,
+      });
 
-    setSaving(false);
-    message.success('Profile saved.');
+      message.success('Profile saved.');
+    } catch {
+      message.error('Could not save your profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const percent = completeness({

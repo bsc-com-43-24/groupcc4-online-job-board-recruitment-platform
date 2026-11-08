@@ -13,16 +13,17 @@ import {
   Drawer,
   Result,
   Row,
-  Skeleton,
   Space,
   Tag,
   Typography,
 } from 'antd';
 import { ArrowLeft, ExternalLink, Pencil } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import { JobStatusTag } from '@/components/StatusTag';
 import ApplicantsTable from '@/components/employer/ApplicantsTable';
 import JobForm, { toJobPatch } from '@/components/employer/JobForm';
+import UnauthorizedResult from '@/components/UnauthorizedResult';
 import type { JobFormValues } from '@/components/employer/JobForm';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useJob, useJobApplications, useJobs } from '@/hooks/useStore';
@@ -52,16 +53,21 @@ export default function EmployerJobDetailPage() {
     }
 
     setSaving(true);
-    updateJob(job.id, toJobPatch(values, status));
-    setSaving(false);
-    setEditing(false);
-    message.success('Vacancy updated.');
+    try {
+      updateJob(job.id, toJobPatch(values, status));
+      setEditing(false);
+      message.success('Vacancy updated.');
+    } catch {
+      message.error('Could not update this vacancy. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!hydrated || !session) {
     return (
       <PageContainer maxWidth={1180}>
-        <Skeleton active paragraph={{ rows: 10 }} />
+        <PageSkeleton rows={10} />
       </PageContainer>
     );
   }
@@ -86,15 +92,9 @@ export default function EmployerJobDetailPage() {
   if (job.employerId !== session.userId) {
     return (
       <PageContainer maxWidth={720}>
-        <Result
-          status="403"
+        <UnauthorizedResult
           title="This vacancy belongs to another employer"
           subTitle="Sign in with the account that posted it to manage its applicants."
-          extra={
-            <Link href="/employer/dashboard">
-              <Button type="primary">Go to my dashboard</Button>
-            </Link>
-          }
         />
       </PageContainer>
     );

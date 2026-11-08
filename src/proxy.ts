@@ -10,9 +10,6 @@ import type { NextRequest } from 'next/server';
 
 const PUBLIC_EXACT = ['/', '/login', '/register'];
 
-/** Job browsing is public; applying is not. */
-const PUBLIC_PREFIX = ['/seeker/jobs'];
-
 const LEGACY_REDIRECTS: Record<string, string> = {
   '/auth/login': '/login',
   '/auth/register': '/register',

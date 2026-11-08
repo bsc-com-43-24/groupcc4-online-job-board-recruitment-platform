@@ -7,10 +7,12 @@ import {
 } from '@/mock/store';
 import {
   apiConfigured,
+  type ApiLoginResponse,
   loginRequest,
   registerRequest,
   requestPasswordResetRequest,
   resetPasswordRequest,
+  ApiRequestError,
 } from './api';
 import { persistSession } from './session';
 
@@ -26,12 +28,12 @@ export interface AuthResponse {
   message: string;
   token?: string;
   user?: AuthUser;
+  networkError?: boolean;
 }
 
 export interface LoginInput {
   email: string;
   password: string;
-  role: Role;
 }
 
 export interface RegisterInput {
@@ -49,7 +51,48 @@ const RESET_TOKEN_LIFETIME_MS = 30 * 60 * 1000;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const roleLabel = (role: Role) => (role === 'EMPLOYER' ? 'Employer' : 'Job Seeker');
+function parseRole(role: string | undefined): Role | null {
+  switch (role?.trim().toLowerCase().replace(/[\s-]+/g, '_')) {
+    case 'employer':
+      return 'EMPLOYER';
+    case 'seeker':
+    case 'job_seeker':
+    case 'jobseeker':
+      return 'SEEKER';
+    default:
+      return null;
+  }
+}
+
+function loginUser(response: ApiLoginResponse, email: string): AuthResponse {
+  if (response.success === false) {
+    return { success: false, message: response.message || 'Sign in failed.' };
+  }
+
+  const role = parseRole(response.user?.role);
+  if (!role) {
+    return {
+      success: false,
+      message: response.message || 'The server returned an invalid account role.',
+    };
+  }
+  if (!response.token) {
+    return {
+      success: false,
+      message: response.message || 'The server did not return an authentication token.',
+    };
+  }
+
+  return startSession(
+    {
+      id: response.user?.id ?? email,
+      email: response.user?.email ?? email,
+      role,
+      name: response.user?.name ?? email.split('@')[0],
+    },
+    response.token,
+  );
+}
 
 function startSession(user: AuthUser, token = DEMO_TOKEN): AuthResponse {
   persistSession(
@@ -101,7 +144,7 @@ function removeResetRecord(token: string): void {
 }
 
 /**
- * Frontend-only authentication against the demo store.
+ * Authentication against the configured backend or the demo store.
  *
  * When `NEXT_PUBLIC_API_URL` is configured the real endpoints are used
  * instead; there is no silent fallback to mock data once a backend exists, so
@@ -111,18 +154,23 @@ export const authService = {
   async login(input: LoginInput): Promise<AuthResponse> {
     if (apiConfigured) {
       try {
-        const response = await loginRequest(input);
-        if (!response.success || !response.user) {
-          return { success: false, message: response.message || 'Sign in failed.' };
-        }
-        return startSession(response.user, response.token);
+        const response = await loginRequest({
+          email: input.email,
+          password: input.password,
+        });
+        return loginUser(response, input.email);
       } catch (error) {
+        const networkError =
+          error instanceof ApiRequestError && error.kind === 'network';
         return {
           success: false,
           message:
-            error instanceof Error
+            networkError
+              ? 'Could not reach the server. Check your connection and try again.'
+              : error instanceof Error
               ? error.message
               : 'Could not reach the server. Please try again.',
+          networkError,
         };
       }
     }
@@ -135,13 +183,6 @@ export const authService = {
       return {
         success: false,
         message: 'Email or password is incorrect.',
-      };
-    }
-
-    if (account.role !== input.role) {
-      return {
-        success: false,
-        message: `That email is registered as a ${roleLabel(account.role)}. Switch to the ${roleLabel(account.role)} tab to sign in.`,
       };
     }
 

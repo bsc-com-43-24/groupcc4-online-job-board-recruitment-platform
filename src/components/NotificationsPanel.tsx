@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Button, Empty, List, Space, Tag, Typography } from 'antd';
+import { App as AntApp, Button, List, Space, Tag, Typography } from 'antd';
 import { CheckCheck } from 'lucide-react';
+import EmptyState from '@/components/ui/EmptyState';
 import type { NotificationItem } from '@/mock/types';
 import { formatDate } from '@/lib/format';
 
@@ -21,8 +22,21 @@ export default function NotificationsPanel({
   onMarkAllRead,
   compact = false,
 }: NotificationsPanelProps) {
+  const { message } = AntApp.useApp();
   const unreadCount = notifications.filter((item) => !item.read).length;
   const visibleNotifications = compact ? notifications.slice(0, 5) : notifications;
+
+  const handleMarkRead = (notification: NotificationItem) => {
+    if (!notification.read) {
+      onMarkRead(notification.id);
+      message.success('Notification marked as read.');
+    }
+  };
+
+  const handleMarkAllRead = () => {
+    onMarkAllRead();
+    message.success('All notifications marked as read.');
+  };
 
   return (
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
@@ -35,7 +49,7 @@ export default function NotificationsPanel({
             type="link"
             size="small"
             icon={<CheckCheck size={14} aria-hidden />}
-            onClick={onMarkAllRead}
+            onClick={handleMarkAllRead}
           >
             Mark all as read
           </Button>
@@ -49,7 +63,7 @@ export default function NotificationsPanel({
             <List.Item style={{ paddingInline: 0 }}>
               <Link
                 href={notification.href ?? '/notifications'}
-                onClick={() => onMarkRead(notification.id)}
+                onClick={() => handleMarkRead(notification)}
                 style={{ display: 'block', width: '100%' }}
               >
                 <Space direction="vertical" size={4} style={{ width: '100%' }}>
@@ -67,9 +81,9 @@ export default function NotificationsPanel({
           )}
         />
       ) : (
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="No notifications yet."
+        <EmptyState
+          title="No notifications yet"
+          description="Updates about your applications and vacancies will appear here."
         />
       )}
 

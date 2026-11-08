@@ -4,6 +4,8 @@ import type {
   Account,
   Application,
   ApplicationStatus,
+  JobCategory,
+  Interview,
   Job,
   MockState,
   NotificationItem,
@@ -11,6 +13,23 @@ import type {
 } from './types';
 
 const STORAGE_KEY = 'cc4.jobboard.v1';
+
+function inferJobCategory(job: Job): JobCategory {
+  const details = `${job.title} ${job.summary} ${job.skills.join(' ')}`.toLowerCase();
+  if (/marketing|campaign|copywriting|social media/.test(details)) {
+    return 'Marketing';
+  }
+  if (/sales|business development/.test(details)) {
+    return 'Sales';
+  }
+  if (/finance|accounting|bookkeep|reconciliation|analyst|analytics/.test(details)) {
+    return 'Business & Finance';
+  }
+  if (/ux|research|design|usability/.test(details)) {
+    return 'Design & Research';
+  }
+  return 'Technology';
+}
 
 /**
  * Reads the persisted demo state. Anything unexpected (missing key, corrupt
@@ -40,7 +59,10 @@ function readPersistedState(): MockState | null {
     }
 
     return {
-      jobs: parsed.jobs,
+      jobs: parsed.jobs.map((job) => ({
+        ...job,
+        category: job.category ?? inferJobCategory(job),
+      })),
       applications: parsed.applications,
       accounts: parsed.accounts,
       profiles: parsed.profiles,
@@ -303,6 +325,145 @@ export function setApplicationStatus(
       notifications: notification ? [notification, ...state.notifications] : state.notifications,
     };
   });
+}
+
+function isValidFutureInterview(interview: Omit<Interview, 'status'>): boolean {
+  const startsAt = new Date(`${interview.date}T${interview.time}:00`);
+  if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now()) {
+    return false;
+  }
+  if (interview.mode === 'Online') {
+    return Boolean(interview.meetingLink?.trim());
+  }
+  return Boolean(interview.location?.trim());
+}
+
+function interviewNotification(
+  application: Application,
+  job: Job | undefined,
+  action: 'scheduled' | 'updated' | 'cancelled',
+  interview: Interview,
+): NotificationItem {
+  const title = {
+    scheduled: 'Interview scheduled',
+    updated: 'Interview updated',
+    cancelled: 'Interview cancelled',
+  }[action];
+  const when = `${interview.date} at ${interview.time}`;
+  const detail =
+    action === 'cancelled'
+      ? `${job?.company ?? 'The employer'} cancelled your interview for ${job?.title ?? 'a vacancy'} scheduled for ${when}.`
+      : `${job?.company ?? 'The employer'} ${action === 'scheduled' ? 'scheduled' : 'updated'} your interview for ${job?.title ?? 'a vacancy'} on ${when}.`;
+
+  return createNotification({
+    userId: application.seekerId,
+    title,
+    detail,
+    kind: action === 'scheduled'
+      ? 'INTERVIEW_SCHEDULED'
+      : action === 'updated'
+        ? 'INTERVIEW_UPDATED'
+        : 'INTERVIEW_CANCELLED',
+    href: `/seeker/applications#application-${application.id}`,
+    applicationId: application.id,
+    jobId: application.jobId,
+  });
+}
+
+/** Schedules an interview only while the application is shortlisted. */
+export function scheduleInterview(
+  applicationId: string,
+  input: Omit<Interview, 'status'>,
+): boolean {
+  if (!isValidFutureInterview(input)) {
+    return false;
+  }
+
+  let scheduled = false;
+  mockStore.set((state) => {
+    const application = state.applications.find((item) => item.id === applicationId);
+    if (
+      !application ||
+      application.status !== 'Shortlisted' ||
+      application.interview?.status === 'Scheduled'
+    ) {
+      return state;
+    }
+
+    const interview: Interview = { ...input, status: 'Scheduled' };
+    const job = state.jobs.find((item) => item.id === application.jobId);
+    scheduled = true;
+    return {
+      ...state,
+      applications: state.applications.map((item) =>
+        item.id === applicationId ? { ...item, interview } : item,
+      ),
+      notifications: [
+        interviewNotification(application, job, 'scheduled', interview),
+        ...state.notifications,
+      ],
+    };
+  });
+  return scheduled;
+}
+
+/** Updates an active interview and notifies the applicant. */
+export function updateInterview(
+  applicationId: string,
+  input: Omit<Interview, 'status'>,
+): boolean {
+  if (!isValidFutureInterview(input)) {
+    return false;
+  }
+
+  let updated = false;
+  mockStore.set((state) => {
+    const application = state.applications.find((item) => item.id === applicationId);
+    if (!application || application.interview?.status !== 'Scheduled') {
+      return state;
+    }
+
+    const interview: Interview = { ...input, status: 'Scheduled' };
+    const job = state.jobs.find((item) => item.id === application.jobId);
+    updated = true;
+    return {
+      ...state,
+      applications: state.applications.map((item) =>
+        item.id === applicationId ? { ...item, interview } : item,
+      ),
+      notifications: [
+        interviewNotification(application, job, 'updated', interview),
+        ...state.notifications,
+      ],
+    };
+  });
+  return updated;
+}
+
+/** Cancels an active interview and notifies the applicant. */
+export function cancelInterview(applicationId: string): boolean {
+  let cancelled = false;
+  mockStore.set((state) => {
+    const application = state.applications.find((item) => item.id === applicationId);
+    if (!application || application.interview?.status !== 'Scheduled') {
+      return state;
+    }
+
+    const interview: Interview = { ...application.interview, status: 'Cancelled' };
+    const job = state.jobs.find((item) => item.id === application.jobId);
+    cancelled = true;
+    return {
+      ...state,
+      applications: state.applications.map((item) =>
+        item.id === applicationId ? { ...item, interview } : item,
+      ),
+      notifications: [
+        interviewNotification(application, job, 'cancelled', interview),
+        ...state.notifications,
+      ],
+    };
+  });
+  return cancelled;
 }
 
 export function withdrawApplication(applicationId: string): boolean {

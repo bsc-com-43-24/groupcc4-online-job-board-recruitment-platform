@@ -11,6 +11,13 @@ export type JobType = 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
 
 export type WorkMode = 'On-site' | 'Hybrid' | 'Remote';
 
+export type JobCategory =
+  | 'Technology'
+  | 'Marketing'
+  | 'Business & Finance'
+  | 'Sales'
+  | 'Design & Research';
+
 export type JobStatus = 'Draft' | 'Active' | 'Closed';
 
 /**
@@ -41,6 +48,7 @@ export interface Job {
   title: string;
   company: string;
   location: string;
+  category?: JobCategory;
   workMode: WorkMode;
   type: JobType;
   currency: string;
@@ -69,6 +77,19 @@ export interface Application {
   status: ApplicationStatus;
   coverLetter?: string;
   cvName?: string;
+  interview?: Interview;
+}
+
+export interface Interview {
+  /** ISO date (yyyy-mm-dd), interpreted in the employer's local timezone. */
+  date: string;
+  /** Local time in 24-hour HH:mm format. */
+  time: string;
+  mode: 'Online' | 'In person';
+  location?: string;
+  meetingLink?: string;
+  notes?: string;
+  status: 'Scheduled' | 'Cancelled';
 }
 
 export interface SeekerProfile {
@@ -107,6 +128,9 @@ export interface NotificationItem {
     | 'NEW_APPLICATION'
     | 'APPLICATION_WITHDRAWN'
     | 'VACANCY_CLOSING_SOON'
+    | 'INTERVIEW_SCHEDULED'
+    | 'INTERVIEW_UPDATED'
+    | 'INTERVIEW_CANCELLED'
     | 'GENERAL';
   href?: string;
   applicationId?: string;
