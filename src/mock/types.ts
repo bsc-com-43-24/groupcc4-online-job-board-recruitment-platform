@@ -23,9 +23,10 @@ export type ApplicationStatus =
   | 'Shortlisted'
   | 'Interviewed'
   | 'Hired'
-  | 'Rejected';
+  | 'Rejected'
+  | 'Withdrawn';
 
-export const APPLICATION_STATUSES: ApplicationStatus[] = [
+export const APPLICATION_STATUSES: Exclude<ApplicationStatus, 'Withdrawn'>[] = [
   'Submitted',
   'Under Review',
   'Shortlisted',
@@ -81,6 +82,7 @@ export interface SeekerProfile {
   education: string;
   experience: string;
   cvName?: string;
+  profilePicture?: string;
 }
 
 export interface Account {
@@ -97,9 +99,19 @@ export interface NotificationItem {
   userId: string;
   title: string;
   detail: string;
-  /** ISO date (yyyy-mm-dd). */
+  /** ISO timestamp. */
   createdAt: string;
   read: boolean;
+  kind?:
+    | 'APPLICATION_STATUS'
+    | 'NEW_APPLICATION'
+    | 'APPLICATION_WITHDRAWN'
+    | 'VACANCY_CLOSING_SOON'
+    | 'GENERAL';
+  href?: string;
+  applicationId?: string;
+  jobId?: string;
+  eventKey?: string;
 }
 
 export interface MockState {

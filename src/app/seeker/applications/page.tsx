@@ -3,11 +3,13 @@
 import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  App as AntApp,
   Button,
   Card,
   Descriptions,
   Drawer,
   Empty,
+  Popconfirm,
   Select,
   Skeleton,
   Space,
@@ -25,6 +27,7 @@ import { useHydrated } from '@/hooks/useHydrated';
 import { useJobs, useSeekerApplications } from '@/hooks/useStore';
 import { formatDate } from '@/lib/format';
 import { useSession } from '@/services/session';
+import { withdrawApplication } from '@/mock/store';
 import type { Application, ApplicationStatus } from '@/mock/types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -38,18 +41,21 @@ const LIFECYCLE: ApplicationStatus[] = [
 ];
 
 function ApplicationTimeline({ application }: { application: Application }) {
-  if (application.status === 'Rejected') {
+  if (application.status === 'Rejected' || application.status === 'Withdrawn') {
+    const rejected = application.status === 'Rejected';
     return (
       <Steps
         size="small"
         direction="vertical"
         current={1}
-        status="error"
+        status={rejected ? 'error' : 'wait'}
         items={[
           { title: 'Application submitted', description: formatDate(application.appliedAt) },
           {
-            title: 'Not selected',
-            description: 'The employer moved forward with other candidates.',
+            title: rejected ? 'Not selected' : 'Application withdrawn',
+            description: rejected
+              ? 'The employer moved forward with other candidates.'
+              : 'You withdrew this application.',
           },
         ]}
       />
@@ -80,6 +86,7 @@ function ApplicationTimeline({ application }: { application: Application }) {
 export default function SeekerApplicationsPage() {
   const hydrated = useHydrated();
   const session = useSession();
+  const { message } = AntApp.useApp();
   const applications = useSeekerApplications(session?.userId);
   const jobs = useJobs();
   const [filter, setFilter] = useState<'All' | ApplicationStatus>('All');
@@ -155,6 +162,16 @@ export default function SeekerApplicationsPage() {
 
   const selectedJob = selected ? jobsById.get(selected.jobId) : undefined;
 
+  const handleWithdraw = () => {
+    if (!selected) {
+      return;
+    }
+    if (withdrawApplication(selected.id)) {
+      message.success('Application withdrawn.');
+    }
+    setSelected(null);
+  };
+
   return (
     <PageContainer maxWidth={1080}>
       <Suspense fallback={null}>
@@ -212,6 +229,7 @@ export default function SeekerApplicationsPage() {
             </Space>
             <Table<Application>
               rowKey="id"
+              onRow={(record) => ({ id: `application-${record.id}` })}
               columns={columns}
               dataSource={filtered}
               pagination={filtered.length > 8 ? { pageSize: 8 } : false}
@@ -278,6 +296,19 @@ export default function SeekerApplicationsPage() {
                 View the vacancy
               </Button>
             </Link>
+            {!['Hired', 'Rejected', 'Withdrawn'].includes(selected.status) ? (
+              <Popconfirm
+                title="Withdraw this application?"
+                description="The employer will be notified that you withdrew."
+                okText="Withdraw"
+                okButtonProps={{ danger: true }}
+                onConfirm={handleWithdraw}
+              >
+                <Button block danger>
+                  Withdraw application
+                </Button>
+              </Popconfirm>
+            ) : null}
           </Space>
         ) : null}
       </Drawer>

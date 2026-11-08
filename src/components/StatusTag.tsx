@@ -8,6 +8,7 @@ const APPLICATION_COLORS: Record<ApplicationStatus, string> = {
   Interviewed: 'purple',
   Hired: 'green',
   Rejected: 'red',
+  Withdrawn: 'default',
 };
 
 const JOB_STATUS_COLORS: Record<JobStatus, string> = {

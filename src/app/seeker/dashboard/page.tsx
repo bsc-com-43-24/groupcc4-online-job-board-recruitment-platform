@@ -4,6 +4,7 @@ import { Suspense, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Alert,
+  Avatar,
   Button,
   Card,
   Col,
@@ -19,7 +20,6 @@ import {
 } from 'antd';
 import {
   ArrowRight,
-  Bell,
   BriefcaseBusiness,
   ChevronRight,
   FileCheck2,
@@ -29,6 +29,7 @@ import {
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
 import { ApplicationStatusTag } from '@/components/StatusTag';
+import NotificationsPanel from '@/components/NotificationsPanel';
 import { useHydrated } from '@/hooks/useHydrated';
 import {
   useJobs,
@@ -38,6 +39,7 @@ import {
   useSeekerApplications,
 } from '@/hooks/useStore';
 import { formatDate, formatSalary } from '@/lib/format';
+import { markNotificationRead, markNotificationsRead } from '@/mock/store';
 import { useSession } from '@/services/session';
 
 const { Title, Text } = Typography;
@@ -186,6 +188,80 @@ export default function SeekerDashboardPage() {
         </Col>
       </Row>
 
+      <Card
+        title="My professional profile"
+        style={{ marginBottom: 20 }}
+        extra={
+          <Link href="/seeker/profile">
+            <Button type="link">Edit profile</Button>
+          </Link>
+        }
+      >
+        {profile ? (
+          <>
+            <Space align="start" size={16} style={{ marginBottom: 20 }}>
+              <Avatar
+                size={72}
+                src={profile.profilePicture}
+                icon={!profile.profilePicture ? <UserRound size={28} aria-hidden /> : undefined}
+              />
+              <div>
+                <Title level={4} style={{ margin: '2px 0 4px' }}>
+                  {profile.fullName || session?.name}
+                </Title>
+                <Text type="secondary">
+                  {profile.headline || 'Add a professional headline to introduce yourself.'}
+                </Text>
+              </div>
+            </Space>
+
+            <Row gutter={[24, 16]}>
+              <Col xs={24} md={12}>
+                <Text strong>Location</Text>
+                <div>{profile.location || 'Not added yet'}</div>
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Phone</Text>
+                <div>{profile.phone || 'Not added yet'}</div>
+              </Col>
+              <Col xs={24}>
+                <Text strong>Skills</Text>
+                <div style={{ marginTop: 6 }}>
+                  {profile.skills.length ? (
+                    <Space wrap size={[6, 6]}>
+                      {profile.skills.map((skill) => <Tag key={skill}>{skill}</Tag>)}
+                    </Space>
+                  ) : (
+                    <Text type="secondary">No skills added yet</Text>
+                  )}
+                </div>
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Education</Text>
+                <div style={{ whiteSpace: 'pre-wrap' }}>{profile.education || 'Not added yet'}</div>
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Work experience</Text>
+                <div style={{ whiteSpace: 'pre-wrap' }}>{profile.experience || 'Not added yet'}</div>
+              </Col>
+              <Col xs={24}>
+                <Text strong>CV</Text>
+                <div>{profile.cvName || 'No CV attached'}</div>
+              </Col>
+            </Row>
+          </>
+        ) : (
+          <Space direction="vertical" size={12}>
+            <Text type="secondary">Your profile details will appear here after you save them.</Text>
+            <Link href="/seeker/profile">
+              <Button type="primary" icon={<UserRound size={16} aria-hidden />}>
+                Create profile
+              </Button>
+            </Link>
+          </Space>
+        )}
+      </Card>
+
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
           <Card
@@ -300,37 +376,12 @@ export default function SeekerDashboardPage() {
           </Card>
 
           <Card title="Notifications">
-            {notifications.length ? (
-              <List
-                dataSource={notifications}
-                renderItem={(notification) => (
-                  <List.Item>
-                    <List.Item.Meta
-                      avatar={<Bell size={16} color="#2563eb" aria-hidden />}
-                      title={
-                        <Space size={6}>
-                          {notification.title}
-                          {!notification.read ? <Tag color="blue">New</Tag> : null}
-                        </Space>
-                      }
-                      description={
-                        <>
-                          <div>{notification.detail}</div>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {formatDate(notification.createdAt)}
-                          </Text>
-                        </>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
-            ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No notifications yet."
-              />
-            )}
+            <NotificationsPanel
+              notifications={notifications}
+              compact
+              onMarkRead={(id) => session && markNotificationRead(session.userId, id)}
+              onMarkAllRead={() => session && markNotificationsRead(session.userId)}
+            />
           </Card>
 
           <Card title="Quick actions" style={{ marginTop: 16 }}>
