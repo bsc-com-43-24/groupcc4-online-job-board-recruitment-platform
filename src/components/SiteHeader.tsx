@@ -394,7 +394,7 @@ export default function SiteHeader() {
         placement="left"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        size="default"
+        width={320}
       >
         <Menu
           mode="inline"

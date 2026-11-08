@@ -5,15 +5,15 @@ import Link from 'next/link';
 import {
   Button,
   Card,
-  Empty,
   Select,
-  Skeleton,
   Space,
   Typography,
 } from 'antd';
 import { Users } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
+import EmptyState from '@/components/ui/EmptyState';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import ApplicantsTable from '@/components/employer/ApplicantsTable';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useEmployerApplications, useEmployerJobs, useJobs } from '@/hooks/useStore';
@@ -42,7 +42,7 @@ export default function EmployerApplicantsPage() {
   if (!hydrated || !session) {
     return (
       <PageContainer maxWidth={1180}>
-        <Skeleton active paragraph={{ rows: 8 }} />
+        <PageSkeleton rows={8} />
       </PageContainer>
     );
   }
@@ -82,23 +82,17 @@ export default function EmployerApplicantsPage() {
 
       <Card>
         {applications.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              <Space direction="vertical" size={2}>
-                <Text strong>No applications yet</Text>
-                <Text type="secondary">
-                  Once someone applies to one of your vacancies, they appear here.
-                </Text>
-              </Space>
-            }
-          >
+          <EmptyState
+            title="No applications yet"
+            description="Once someone applies to one of your vacancies, they appear here."
+            action={
             <Link href="/employer/jobs">
               <Button type="primary" icon={<Users size={16} aria-hidden />}>
                 View my vacancies
               </Button>
             </Link>
-          </Empty>
+            }
+          />
         ) : (
           <ApplicantsTable
             applications={filtered}

@@ -8,10 +8,8 @@ import {
   Card,
   Descriptions,
   Drawer,
-  Empty,
   Popconfirm,
   Select,
-  Skeleton,
   Space,
   Steps,
   Table,
@@ -22,6 +20,9 @@ import type { TableProps } from 'antd';
 import { ChevronRight, FileText } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
+import EmptyState from '@/components/ui/EmptyState';
+import PageSkeleton from '@/components/ui/PageSkeleton';
+import InterviewDetails from '@/components/InterviewDetails';
 import { ApplicationStatusTag } from '@/components/StatusTag';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useJobs, useSeekerApplications } from '@/hooks/useStore';
@@ -141,6 +142,24 @@ export default function SeekerApplicationsPage() {
       render: (status: ApplicationStatus) => <ApplicationStatusTag status={status} />,
     },
     {
+      title: 'Interview',
+      key: 'interview',
+      width: 190,
+      render: (_, record) =>
+        record.interview ? (
+          <Space direction="vertical" size={0}>
+            <Tag color={record.interview.status === 'Scheduled' ? 'blue' : 'default'}>
+              {record.interview.status}
+            </Tag>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {formatDate(record.interview.date)} · {record.interview.time}
+            </Text>
+          </Space>
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
+    },
+    {
       title: '',
       key: 'actions',
       width: 140,
@@ -155,7 +174,7 @@ export default function SeekerApplicationsPage() {
   if (!hydrated) {
     return (
       <PageContainer maxWidth={1080}>
-        <Skeleton active paragraph={{ rows: 8 }} />
+        <PageSkeleton rows={8} />
       </PageContainer>
     );
   }
@@ -166,10 +185,16 @@ export default function SeekerApplicationsPage() {
     if (!selected) {
       return;
     }
-    if (withdrawApplication(selected.id)) {
+    try {
+      if (!withdrawApplication(selected.id)) {
+        message.error('Could not withdraw this application. Please try again.');
+        return;
+      }
       message.success('Application withdrawn.');
+      setSelected(null);
+    } catch {
+      message.error('Could not withdraw this application. Please try again.');
     }
-    setSelected(null);
   };
 
   return (
@@ -197,19 +222,15 @@ export default function SeekerApplicationsPage() {
 
       <Card>
         {applications.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              <Space direction="vertical" size={2}>
-                <Text strong>You haven&apos;t applied to anything yet</Text>
-                <Text type="secondary">Once you apply, you can track progress here.</Text>
-              </Space>
-            }
-          >
+          <EmptyState
+            title="You haven't applied to anything yet"
+            description="Once you apply, you can track progress here."
+            action={
             <Link href="/seeker/jobs">
               <Button type="primary">Find a role</Button>
             </Link>
-          </Empty>
+            }
+          />
         ) : (
           <>
             <Space wrap style={{ marginBottom: 16 }}>
@@ -233,12 +254,12 @@ export default function SeekerApplicationsPage() {
               columns={columns}
               dataSource={filtered}
               pagination={filtered.length > 8 ? { pageSize: 8 } : false}
-              scroll={{ x: 640 }}
+              scroll={{ x: 850 }}
               locale={{
                 emptyText: (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="No applications with this status."
+                  <EmptyState
+                    title="No applications with this status"
+                    description="Choose another status filter to see more applications."
                   />
                 ),
               }}
@@ -281,6 +302,15 @@ export default function SeekerApplicationsPage() {
                 <ApplicationTimeline application={selected} />
               </div>
             </div>
+
+            {selected.interview ? (
+              <div>
+                <Text strong>Interview details</Text>
+                <div style={{ marginTop: 10 }}>
+                  <InterviewDetails interview={selected.interview} />
+                </div>
+              </div>
+            ) : null}
 
             {selected.coverLetter ? (
               <div>

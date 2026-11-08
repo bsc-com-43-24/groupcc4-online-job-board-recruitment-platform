@@ -3,9 +3,10 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { App as AntApp, Button, Card, Skeleton, Space, Typography } from 'antd';
+import { App as AntApp, Button, Card, Space, Typography } from 'antd';
 import { ArrowLeft } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import JobForm, { toJobPatch } from '@/components/employer/JobForm';
 import type { JobFormValues } from '@/components/employer/JobForm';
 import { useHydrated } from '@/hooks/useHydrated';
@@ -35,28 +36,32 @@ export default function NewEmployerJobPage() {
   if (!hydrated || !session) {
     return (
       <PageContainer maxWidth={880}>
-        <Skeleton active paragraph={{ rows: 10 }} />
+        <PageSkeleton rows={10} />
       </PageContainer>
     );
   }
 
   const handleSubmit = (values: JobFormValues, status: JobStatus) => {
     setSaving(true);
+    try {
+      const job = createJob({
+        employerId: session.userId,
+        company: companyName,
+        currency: 'MWK',
+        ...toJobPatch(values, status),
+      });
 
-    const job = createJob({
-      employerId: session.userId,
-      company: companyName,
-      currency: 'MWK',
-      ...toJobPatch(values, status),
-    });
-
-    setSaving(false);
-    message.success(
-      status === 'Draft'
-        ? 'Vacancy saved as a draft. Publish it when you are ready.'
-        : 'Vacancy published and visible to job seekers.',
-    );
-    router.push(`/employer/jobs/${job.id}`);
+      message.success(
+        status === 'Draft'
+          ? 'Vacancy saved as a draft. Publish it when you are ready.'
+          : 'Vacancy published and visible to job seekers.',
+      );
+      router.push(`/employer/jobs/${job.id}`);
+    } catch {
+      message.error('Could not create this vacancy. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

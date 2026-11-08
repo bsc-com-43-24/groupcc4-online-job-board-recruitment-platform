@@ -20,6 +20,7 @@ export default function PageContainer({
 }: PageContainerProps) {
   return (
     <div
+      className="page-container"
       style={{
         width: '100%',
         maxWidth,

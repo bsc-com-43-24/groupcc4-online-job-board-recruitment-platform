@@ -15,7 +15,6 @@ import {
   Modal,
   Result,
   Row,
-  Skeleton,
   Space,
   Tag,
   Typography,
@@ -36,6 +35,7 @@ import {
   UploadCloud,
 } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import { ApplicationStatusTag } from '@/components/StatusTag';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useJob, useJobApplications } from '@/hooks/useStore';
@@ -159,7 +159,7 @@ export default function JobDetailPage() {
     if (!hydrated) {
       return (
         <PageContainer maxWidth={1100}>
-          <Skeleton active paragraph={{ rows: 8 }} />
+          <PageSkeleton rows={8} />
         </PageContainer>
       );
     }
@@ -212,27 +212,31 @@ export default function JobDetailPage() {
     }
 
     setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const application = applyToJob({
-      job,
-      seekerId: session.userId,
-      seekerName: session.name,
-      seekerEmail: session.email,
-      coverLetter: coverLetter.trim() || undefined,
-      cvName,
-    });
+      const application = applyToJob({
+        job,
+        seekerId: session.userId,
+        seekerName: session.name,
+        seekerEmail: session.email,
+        coverLetter: coverLetter.trim() || undefined,
+        cvName,
+      });
 
-    setSubmitting(false);
-    setModalOpen(false);
+      if (!application) {
+        message.info('You have already applied to this vacancy.');
+        return;
+      }
 
-    if (!application) {
-      message.info('You have already applied to this vacancy.');
-      return;
+      setModalOpen(false);
+      message.success('Application submitted. Track its progress under My applications.');
+      resetModal();
+    } catch {
+      message.error('Could not submit your application. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-
-    message.success('Application submitted. Track its progress under My applications.');
-    resetModal();
   };
 
   const applyBlock = myApplication ? (

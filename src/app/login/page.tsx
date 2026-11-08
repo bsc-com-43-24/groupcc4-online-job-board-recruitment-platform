@@ -12,15 +12,13 @@ import {
   Form,
   Input,
   Space,
-  Tabs,
-  Tag,
   Typography,
 } from 'antd';
-import { BankOutlined, LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { authService } from '@/services/authService';
-import type { Role } from '@/mock/types';
 import { roleHome, safeNextPath } from '@/services/session';
-import { demoAccounts } from '@/mock/seed';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 
 const { Title, Text } = Typography;
 
@@ -35,51 +33,45 @@ function LoginContent() {
   const { message } = AntApp.useApp();
   const [form] = Form.useForm<LoginValues>();
 
-  const roleParam = searchParams.get('role');
   const resetSuccess = searchParams.get('reset') === 'success';
-  const [activeRole, setActiveRole] = useState<Role>(
-    roleParam === 'EMPLOYER' ? 'EMPLOYER' : 'SEEKER',
-  );
+  const sessionExpired = searchParams.get('session') === 'expired';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleRoleChange = (key: string) => {
-    setActiveRole(key as Role);
-    setError(null);
-    form.resetFields();
-  };
+  const [retryAvailable, setRetryAvailable] = useState(false);
 
   const handleFinish = async (values: LoginValues) => {
     setLoading(true);
     setError(null);
+    setRetryAvailable(false);
 
-    const result = await authService.login({
-      email: values.email,
-      password: values.password,
-      role: activeRole,
-    });
+    try {
+      const result = await authService.login({
+        email: values.email,
+        password: values.password,
+      });
 
-    setLoading(false);
+      if (!result.success || !result.user) {
+        setError(result.message);
+        setRetryAvailable(Boolean(result.networkError));
+        return;
+      }
 
-    if (!result.success || !result.user) {
-      setError(result.message);
-      return;
+      message.success(`Welcome back, ${result.user.name.split(' ')[0]}.`);
+
+      const dashboard = roleHome(result.user.role);
+      const next = safeNextPath(searchParams.get('next'));
+      const rolePrefix = result.user.role === 'EMPLOYER' ? '/employer/' : '/seeker/';
+      const destination =
+        next && (next === dashboard || next.startsWith(rolePrefix))
+          ? next
+          : dashboard;
+      router.replace(destination);
+      router.refresh();
+    } catch {
+      setError('Sign in failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    message.success(`Welcome back, ${result.user.name.split(' ')[0]}.`);
-
-    const next = safeNextPath(searchParams.get('next'));
-    router.replace(next ?? roleHome(result.user.role));
-    router.refresh();
-  };
-
-  const fillDemoCredentials = () => {
-    const demo = demoAccounts.find((account) => account.role === activeRole);
-    if (!demo) {
-      return;
-    }
-    form.setFieldsValue({ email: demo.email, password: demo.password });
-    setError(null);
   };
 
   return (
@@ -90,6 +82,7 @@ function LoginContent() {
         justifyContent: 'center',
         alignItems: 'flex-start',
         padding: '48px 16px',
+        background: 'linear-gradient(135deg, #ffffff 0%, #eaf3ff 100%)',
       }}
     >
       <Card style={{ width: '100%', maxWidth: 460 }}>
@@ -97,34 +90,8 @@ function LoginContent() {
           <Title level={3} style={{ marginBottom: 6 }}>
             Welcome back
           </Title>
-          <Text type="secondary">
-            Sign in to your {activeRole === 'SEEKER' ? 'job seeker' : 'employer'} account
-          </Text>
+          <Text type="secondary">Sign in to your account</Text>
         </div>
-
-        <Tabs
-          activeKey={activeRole}
-          onChange={handleRoleChange}
-          centered
-          items={[
-            {
-              key: 'SEEKER',
-              label: (
-                <span>
-                  <UserOutlined aria-hidden /> Job Seeker
-                </span>
-              ),
-            },
-            {
-              key: 'EMPLOYER',
-              label: (
-                <span>
-                  <BankOutlined aria-hidden /> Employer
-                </span>
-              ),
-            },
-          ]}
-        />
 
         {resetSuccess ? (
           <Alert
@@ -135,11 +102,33 @@ function LoginContent() {
           />
         ) : null}
 
+        {sessionExpired ? (
+          <Alert
+            type="warning"
+            showIcon
+            role="alert"
+            message="Your session has expired, please log in again."
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
+
         {error ? (
           <Alert
             type="error"
             showIcon
             message={error}
+            action={
+              retryAvailable ? (
+                <Button
+                  type="link"
+                  size="small"
+                  disabled={loading}
+                  onClick={() => form.submit()}
+                >
+                  Retry
+                </Button>
+              ) : undefined
+            }
             style={{ marginBottom: 16 }}
             closable
             onClose={() => setError(null)}
@@ -195,25 +184,9 @@ function LoginContent() {
             loading={loading}
             style={{ marginTop: 4 }}
           >
-            Log in as {activeRole === 'SEEKER' ? 'Job Seeker' : 'Employer'}
+            Log in
           </Button>
         </Form>
-
-        <Divider style={{ margin: '20px 0' }} />
-
-        <Space direction="vertical" size={10} style={{ width: '100%' }}>
-          <Space size={8} wrap style={{ justifyContent: 'center' }}>
-            <Text type="secondary">Demo account:</Text>
-            <Tag>{demoAccounts.find((account) => account.role === activeRole)?.email}</Tag>
-            <Tag>Demo1234</Tag>
-          </Space>
-          <Button block onClick={fillDemoCredentials}>
-            Fill demo credentials
-          </Button>
-          <Text type="secondary" style={{ textAlign: 'center', display: 'block', fontSize: 13 }}>
-            This frontend demo keeps accounts in your browser only.
-          </Text>
-        </Space>
 
         <Divider style={{ margin: '20px 0' }} />
 
@@ -230,8 +203,10 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 48, textAlign: 'center' }}>Loading…</div>}>
-      <LoginContent />
-    </Suspense>
+    <ProtectedRoute guestOnly>
+      <Suspense fallback={<PageSkeleton rows={5} />}>
+        <LoginContent />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

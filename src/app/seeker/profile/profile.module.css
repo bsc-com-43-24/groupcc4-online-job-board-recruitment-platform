@@ -1,0 +1,473 @@
+.page {
+  min-height: calc(100vh - 64px);
+  padding: 28px 20px 48px;
+  color: #23383d;
+  background: #f3f6f7;
+}
+
+.pageInner {
+  width: min(940px, 100%);
+  margin: 0 auto;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 18px;
+  color: #28655f;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  margin-bottom: 18px;
+  border: 1px solid #e3eaea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.identityIcon {
+  position: relative;
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  color: #246a62;
+  background: #e6f3ed;
+  border-radius: 50%;
+}
+
+.identityIcon > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoUpload {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  color: #fff;
+  background: #236a61;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.photoUpload:focus-within {
+  outline: 2px solid #dfaa43;
+  outline-offset: 2px;
+}
+
+.photoUpload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.photoHint {
+  display: block;
+  margin-top: 5px;
+  color: #77888c;
+  font-size: 11px;
+}
+
+.pageHeaderText {
+  min-width: 0;
+  flex: 1;
+}
+
+.pageHeaderText :global(.ant-typography) {
+  margin: 0 0 4px;
+  color: #1d383e;
+  font-size: 25px;
+}
+
+.pageHeaderText > p:last-child {
+  margin: 0;
+  color: #708186;
+  font-size: 13px;
+}
+
+.eyebrow {
+  margin: 0 0 5px;
+  color: #64817c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.feedback {
+  margin-bottom: 16px;
+}
+
+.form,
+.profileView {
+  display: grid;
+  gap: 14px;
+}
+
+.section {
+  min-width: 0;
+  padding: 22px 24px;
+  border: 1px solid #e3eaea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sectionHeading h2 {
+  margin: 0;
+  color: #213b40;
+  font-size: 17px;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.sectionHeading p {
+  margin: 3px 0 0;
+  color: #77888c;
+  font-size: 12px;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: #3e555a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.field :global(.ant-input),
+.field :global(.ant-input-affix-wrapper) {
+  min-height: 40px;
+  border-radius: 5px;
+}
+
+.field :global(textarea.ant-input) {
+  min-height: initial;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.skillInputRow {
+  display: flex;
+  gap: 8px;
+}
+
+.skillInputRow :global(.ant-input) {
+  min-height: 40px;
+  border-radius: 5px;
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.tagList :global(.ant-tag) {
+  margin: 0;
+  padding: 4px 9px;
+  border-radius: 4px;
+}
+
+.muted {
+  color: #879699;
+  font-size: 13px;
+}
+
+.dynamicList {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dynamicRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dynamicRow :global(.ant-input) {
+  min-height: 40px;
+  border-radius: 5px;
+}
+
+.experienceEditor {
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #e6eceb;
+  border-radius: 6px;
+  background: #fafcfc;
+}
+
+.experienceHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  color: #456167;
+  font-size: 13px;
+}
+
+.dateFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.uploadBox {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 18px;
+  color: #3d716a;
+  border: 1px dashed #9abbb0;
+  border-radius: 6px;
+  background: #f8fbf9;
+  cursor: pointer;
+}
+
+.uploadBox > span {
+  display: grid;
+  gap: 3px;
+}
+
+.uploadBox strong {
+  color: #315752;
+  font-size: 13px;
+}
+
+.uploadBox small {
+  color: #7d8f8e;
+  font-size: 11px;
+}
+
+.uploadBox input,
+.replaceCv input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.cvFile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  color: #367367;
+  border: 1px solid #e2ebe7;
+  border-radius: 6px;
+  background: #fbfdfc;
+}
+
+.cvFile > div {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.cvFile strong {
+  overflow: hidden;
+  color: #385358;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cvFile span {
+  color: #81908e;
+  font-size: 11px;
+}
+
+.replaceCv,
+.cvLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #286a60;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cvError {
+  margin-top: 10px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 2px 0;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.infoGrid > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.infoGrid span {
+  color: #819092;
+  font-size: 11px;
+}
+
+.infoGrid strong {
+  overflow-wrap: anywhere;
+  color: #304c50;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.summary {
+  margin: 18px 0 0;
+  color: #50686b;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.simpleList {
+  display: grid;
+  gap: 9px;
+  padding-left: 19px;
+  margin: 0;
+  color: #50686b;
+  font-size: 13px;
+}
+
+.experienceList {
+  display: grid;
+  gap: 16px;
+}
+
+.experienceItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  color: #508075;
+}
+
+.experienceItem > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.experienceItem strong {
+  color: #304c50;
+  font-size: 13px;
+}
+
+.experienceItem span,
+.experienceItem p {
+  margin: 0;
+  color: #718184;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 18px 12px 32px;
+  }
+
+  .pageHeader {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 18px;
+  }
+
+  .pageHeaderText {
+    flex-basis: calc(100% - 70px);
+  }
+
+  .pageHeaderText :global(.ant-typography) {
+    font-size: 21px;
+  }
+
+  .pageHeader > :global(.ant-btn) {
+    width: 100%;
+  }
+
+  .section {
+    padding: 17px 15px;
+  }
+
+  .fieldGrid,
+  .infoGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fieldWide {
+    grid-column: auto;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+  }
+
+  .sectionHeading :global(.ant-btn) {
+    flex: 0 0 auto;
+  }
+
+  .cvFile {
+    flex-wrap: wrap;
+  }
+
+  .cvFile > div {
+    flex-basis: calc(100% - 50px);
+  }
+
+  .formActions :global(.ant-btn) {
+    flex: 1;
+  }
+}

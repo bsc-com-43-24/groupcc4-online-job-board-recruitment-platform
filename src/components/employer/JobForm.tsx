@@ -1,14 +1,22 @@
 'use client';
 
 import { Button, Col, Form, Input, InputNumber, Row, Select, Space } from 'antd';
-import type { Job, JobStatus, JobType, WorkMode } from '@/mock/types';
+import type { Job, JobCategory, JobStatus, JobType, WorkMode } from '@/mock/types';
 
 const JOB_TYPES: JobType[] = ['Full-time', 'Part-time', 'Contract', 'Internship'];
 const WORK_MODES: WorkMode[] = ['On-site', 'Hybrid', 'Remote'];
+const JOB_CATEGORIES: JobCategory[] = [
+  'Technology',
+  'Marketing',
+  'Business & Finance',
+  'Sales',
+  'Design & Research',
+];
 
 export interface JobFormValues {
   title: string;
   location: string;
+  category: JobCategory;
   workMode: WorkMode;
   type: JobType;
   salaryMin: number | null;
@@ -50,6 +58,7 @@ export default function JobForm({
     ? {
         title: initialValues.title,
         location: initialValues.location,
+        category: initialValues.category ?? 'Technology',
         workMode: initialValues.workMode,
         type: initialValues.type,
         salaryMin: initialValues.salaryMin,
@@ -64,6 +73,7 @@ export default function JobForm({
     : {
         workMode: 'On-site' as WorkMode,
         type: 'Full-time' as JobType,
+        category: 'Technology' as JobCategory,
         skills: [] as string[],
         deadline: '',
       };
@@ -103,7 +113,16 @@ export default function JobForm({
       </Row>
 
       <Row gutter={16}>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={6}>
+          <Form.Item name="category" label="Category" rules={[{ required: true }]}>
+            <Select
+              size="large"
+              options={JOB_CATEGORIES.map((value) => ({ value, label: value }))}
+              aria-label="Job category"
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={6}>
           <Form.Item name="workMode" label="Work mode" rules={[{ required: true }]}>
             <Select
               size="large"
@@ -112,7 +131,7 @@ export default function JobForm({
             />
           </Form.Item>
         </Col>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={6}>
           <Form.Item name="type" label="Contract type" rules={[{ required: true }]}>
             <Select
               size="large"
@@ -121,7 +140,7 @@ export default function JobForm({
             />
           </Form.Item>
         </Col>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={6}>
           <Form.Item
             name="deadline"
             label="Application deadline"
@@ -264,6 +283,7 @@ export function toJobPatch(values: JobFormValues, status: JobStatus) {
   return {
     title: values.title.trim(),
     location: values.location.trim(),
+    category: values.category,
     workMode: values.workMode,
     type: values.type,
     salaryMin: Number(values.salaryMin ?? 0),

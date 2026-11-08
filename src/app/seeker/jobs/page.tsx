@@ -1,26 +1,29 @@
 'use client';
 
-import { Suspense, useMemo } from 'react';
+import { Suspense, useMemo, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  Alert,
   Button,
   Card,
   Col,
-  Empty,
   Input,
+  InputNumber,
   Pagination,
   Row,
   Select,
   Space,
+  Spin,
   Tag,
   Typography,
 } from 'antd';
 import { Building2, MapPin, SlidersHorizontal } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
+import EmptyState from '@/components/ui/EmptyState';
 import { usePublishedJobs } from '@/hooks/useStore';
 import { deadlineLabel, daysUntil, formatSalary } from '@/lib/format';
-import type { JobType, WorkMode } from '@/mock/types';
+import type { Job, JobCategory, JobType, WorkMode } from '@/mock/types';
 
 const { Title, Text } = Typography;
 
@@ -28,23 +31,65 @@ const PAGE_SIZE = 6;
 
 const JOB_TYPES: JobType[] = ['Full-time', 'Part-time', 'Contract', 'Internship'];
 const WORK_MODES: WorkMode[] = ['On-site', 'Hybrid', 'Remote'];
+const JOB_CATEGORIES: JobCategory[] = [
+  'Technology',
+  'Marketing',
+  'Business & Finance',
+  'Sales',
+  'Design & Research',
+];
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
-  { value: 'deadline', label: 'Closing soonest' },
-  { value: 'salary', label: 'Highest salary' },
+  { value: 'relevance', label: 'Relevance' },
 ];
+
+function queryNumber(value: string | null): number | undefined {
+  if (value === null || value.trim() === '') {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+function relevanceScore(job: Job, terms: string[]): number {
+  const fields: Array<[string, number]> = [
+    [job.title, 5],
+    [job.skills.join(' '), 4],
+    [job.company, 3],
+    [job.category ?? '', 3],
+    [job.location, 3],
+    [`${job.type} ${job.workMode}`, 2],
+    [job.summary, 2],
+    [job.description, 1],
+  ];
+
+  return terms.reduce(
+    (score, term) =>
+      score +
+      fields.reduce(
+        (fieldScore, [value, weight]) =>
+          fieldScore + (value.toLowerCase().includes(term) ? weight : 0),
+        0,
+      ),
+    0,
+  );
+}
 
 function JobsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const jobs = usePublishedJobs();
 
   const keyword = (searchParams.get('keyword') ?? '').trim();
   const location = searchParams.get('location') ?? '';
   const type = searchParams.get('type') ?? '';
+  const category = searchParams.get('category') ?? '';
   const workMode = searchParams.get('workMode') ?? '';
-  const sort = searchParams.get('sort') ?? 'newest';
+  const salaryMin = queryNumber(searchParams.get('salaryMin'));
+  const salaryMax = queryNumber(searchParams.get('salaryMax'));
+  const sort = searchParams.get('sort') === 'relevance' ? 'relevance' : 'newest';
   const requestedPage = Number(searchParams.get('page') ?? '1');
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
@@ -57,14 +102,15 @@ function JobsContent() {
   );
 
   const filteredJobs = useMemo(() => {
-    const needle = keyword.toLowerCase();
+    const terms = keyword.toLowerCase().split(/\s+/).filter(Boolean);
 
     const result = jobs.filter((job) => {
-      if (needle) {
+      if (terms.length) {
         const haystack = [
           job.title,
           job.company,
           job.location,
+          job.category ?? '',
           job.summary,
           job.type,
           job.workMode,
@@ -73,18 +119,30 @@ function JobsContent() {
           .join(' ')
           .toLowerCase();
 
-        if (!haystack.includes(needle)) {
+        if (!terms.every((term) => haystack.includes(term))) {
           return false;
         }
       }
 
-      if (location && job.location !== location) {
+      if (location && !job.location.toLowerCase().includes(location.toLowerCase())) {
         return false;
       }
       if (type && job.type !== type) {
         return false;
       }
+      if (category && job.category !== category) {
+        return false;
+      }
       if (workMode && job.workMode !== workMode) {
+        return false;
+      }
+      if (salaryMin !== undefined && job.salaryMax < salaryMin) {
+        return false;
+      }
+      if (salaryMax !== undefined && job.salaryMin > salaryMax) {
+        return false;
+      }
+      if (salaryMin !== undefined && salaryMax !== undefined && salaryMin > salaryMax) {
         return false;
       }
 
@@ -92,17 +150,17 @@ function JobsContent() {
     });
 
     result.sort((a, b) => {
-      if (sort === 'deadline') {
-        return a.deadline.localeCompare(b.deadline);
-      }
-      if (sort === 'salary') {
-        return b.salaryMax - a.salaryMax;
+      if (sort === 'relevance' && terms.length) {
+        const scoreDifference = relevanceScore(b, terms) - relevanceScore(a, terms);
+        if (scoreDifference) {
+          return scoreDifference;
+        }
       }
       return b.postedAt.localeCompare(a.postedAt);
     });
 
     return result;
-  }, [jobs, keyword, location, type, workMode, sort]);
+  }, [jobs, keyword, location, type, category, workMode, salaryMin, salaryMax, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -111,10 +169,23 @@ function JobsContent() {
     safePage * PAGE_SIZE,
   );
 
-  const activeFilters = [keyword, location, type, workMode].filter(Boolean).length;
+  const activeFilters = [
+    keyword,
+    location,
+    type,
+    category,
+    workMode,
+    salaryMin !== undefined ? 'salaryMin' : '',
+    salaryMax !== undefined ? 'salaryMax' : '',
+  ].filter(Boolean).length;
+  const hasSearchState = activeFilters > 0 || searchParams.toString().length > 0;
 
   const applyParams = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(searchParams.toString());
+
+    if (!Object.hasOwn(patch, 'page')) {
+      next.delete('page');
+    }
 
     Object.entries(patch).forEach(([key, value]) => {
       if (value) {
@@ -125,10 +196,14 @@ function JobsContent() {
     });
 
     const query = next.toString();
-    router.push(query ? `/seeker/jobs?${query}` : '/seeker/jobs');
+    startTransition(() => {
+      router.push(query ? `/seeker/jobs?${query}` : '/seeker/jobs');
+    });
   };
 
-  const clearFilters = () => router.push('/seeker/jobs');
+  const clearFilters = () => {
+    startTransition(() => router.push('/seeker/jobs'));
+  };
 
   return (
     <PageContainer maxWidth={1200}>
@@ -160,7 +235,7 @@ function JobsContent() {
             />
           </Col>
 
-          <Col xs={12} md={6} lg={4}>
+          <Col xs={12} md={6} lg={3}>
             <Select
               aria-label="Filter by location"
               size="large"
@@ -186,7 +261,20 @@ function JobsContent() {
             />
           </Col>
 
-          <Col xs={12} md={6} lg={4}>
+          <Col xs={12} md={6} lg={3}>
+            <Select
+              aria-label="Filter by category"
+              size="large"
+              allowClear
+              style={{ width: '100%' }}
+              placeholder="Category"
+              value={category || undefined}
+              options={JOB_CATEGORIES.map((value) => ({ value, label: value }))}
+              onChange={(value) => applyParams({ category: value })}
+            />
+          </Col>
+
+          <Col xs={12} md={6} lg={3}>
             <Select
               aria-label="Filter by work mode"
               size="large"
@@ -199,7 +287,7 @@ function JobsContent() {
             />
           </Col>
 
-          <Col xs={12} md={6} lg={4}>
+          <Col xs={12} md={6} lg={3}>
             <Select
               aria-label="Sort results"
               size="large"
@@ -209,37 +297,75 @@ function JobsContent() {
               onChange={(value) => applyParams({ sort: value })}
             />
           </Col>
+
+          <Col xs={12} md={6} lg={3}>
+            <InputNumber
+              aria-label="Minimum salary per month"
+              size="large"
+              min={0}
+              step={50000}
+              style={{ width: '100%' }}
+              placeholder="Min salary (MWK)"
+              value={salaryMin}
+              onChange={(value) =>
+                applyParams({ salaryMin: value == null ? undefined : String(value) })
+              }
+            />
+          </Col>
+          <Col xs={12} md={6} lg={3}>
+            <InputNumber
+              aria-label="Maximum salary per month"
+              size="large"
+              min={0}
+              step={50000}
+              style={{ width: '100%' }}
+              placeholder="Max salary (MWK)"
+              value={salaryMax}
+              onChange={(value) =>
+                applyParams({ salaryMax: value == null ? undefined : String(value) })
+              }
+            />
+          </Col>
         </Row>
 
-        {activeFilters > 0 ? (
+        {salaryMin !== undefined &&
+        salaryMax !== undefined &&
+        salaryMin > salaryMax ? (
+          <Alert
+            type="error"
+            showIcon
+            message="Minimum salary must be less than or equal to maximum salary."
+            style={{ marginTop: 12 }}
+          />
+        ) : null}
+
+        {hasSearchState ? (
           <Space style={{ marginTop: 12 }} wrap>
-            <Text type="secondary">
-              <SlidersHorizontal size={14} aria-hidden /> {activeFilters} filter
-              {activeFilters === 1 ? '' : 's'} applied
-            </Text>
+            {activeFilters > 0 ? (
+              <Text type="secondary">
+                <SlidersHorizontal size={14} aria-hidden /> {activeFilters} filter
+                {activeFilters === 1 ? '' : 's'} applied
+              </Text>
+            ) : null}
             <Button type="link" onClick={clearFilters} style={{ paddingInline: 0 }}>
-              Clear all filters
+              Clear filters
             </Button>
           </Space>
         ) : null}
       </Card>
 
+      <Spin spinning={isPending} tip="Updating results…">
       {visibleJobs.length === 0 ? (
         <Card>
-          <Empty
-            description={
-              <Space direction="vertical" size={4}>
-                <Text strong>No vacancies match those filters</Text>
-                <Text type="secondary">
-                  Try a broader keyword, or clear the filters to see every open role.
-                </Text>
-              </Space>
-            }
-          >
+          <EmptyState
+            title="No vacancies match those filters"
+            description="Try a broader keyword, or clear the filters to see every open role."
+            action={
             <Button type="primary" onClick={clearFilters}>
               Clear filters
             </Button>
-          </Empty>
+            }
+          />
         </Card>
       ) : (
         <>
@@ -265,6 +391,7 @@ function JobsContent() {
                     </Tag>
                     <Tag color="cyan">{job.workMode}</Tag>
                     <Tag color="geekblue">{job.type}</Tag>
+                    {job.category ? <Tag color="purple">{job.category}</Tag> : null}
                   </Space>
 
                   <Text type="secondary" style={{ lineHeight: 1.6 }}>
@@ -306,6 +433,7 @@ function JobsContent() {
           ) : null}
         </>
       )}
+      </Spin>
     </PageContainer>
   );
 }
@@ -315,7 +443,7 @@ export default function SeekerJobsPage() {
     <Suspense
       fallback={
         <PageContainer maxWidth={1200}>
-          <Card loading />
+          <PageSkeleton rows={5} />
         </PageContainer>
       }
     >

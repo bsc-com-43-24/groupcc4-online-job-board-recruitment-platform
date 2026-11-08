@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Button, Card, Result, Skeleton, Space, Typography } from 'antd';
+import { Button, Card, Result, Space, Typography } from 'antd';
 import PageContainer from '@/components/PageContainer';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useNotifications } from '@/hooks/useStore';
@@ -19,7 +20,7 @@ export default function NotificationsPage() {
   if (!hydrated) {
     return (
       <PageContainer maxWidth={900}>
-        <Skeleton active paragraph={{ rows: 8 }} />
+        <PageSkeleton rows={8} />
       </PageContainer>
     );
   }

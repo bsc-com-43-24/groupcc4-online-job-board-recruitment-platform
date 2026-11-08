@@ -5,8 +5,8 @@ job seekers search and apply for vacancies, and employers post roles and manage
 applicants.
 
 Built with **Next.js 16 (App Router)**, **React 19**, **Ant Design 6** and
-**lucide-react**. The project is frontend-only, so all data lives in a typed,
-browser-persisted mock store (`src/mock`).
+**lucide-react**. The app uses a typed, browser-persisted mock store (`src/mock`)
+and can use a configured backend for authentication.
 
 ## Getting started
 
@@ -27,7 +27,7 @@ Other scripts:
 
 ## Demo accounts
 
-The sign-in screen has a **“Fill demo credentials”** button. Passwords are `Demo1234`.
+Use the unified sign-in form with any of these accounts. Passwords are `Demo1234`.
 
 | Role | Email |
 | --- | --- |
@@ -47,9 +47,9 @@ Public:
 | Route | Purpose |
 | --- | --- |
 | `/` | Landing page with search |
-| `/seeker/jobs` | Public vacancy search (filters, sorting, pagination) |
+| `/seeker/jobs` | Vacancy search with filters, sorting and pagination |
 | `/seeker/jobs/[id]` | Vacancy details; applying requires sign-in |
-| `/login`, `/register` | Authentication (role tabs) |
+| `/login`, `/register` | Authentication |
 
 Job seeker (signed in as `SEEKER`):
 
@@ -81,7 +81,8 @@ are redirected by `src/proxy.ts`.
   and the hydrated client agree.
 - `src/mock/types.ts` defines the shared domain model, including one canonical
   `ApplicationStatus` lifecycle used everywhere.
-- `src/services/api.ts` is the seam for a future backend: set `NEXT_PUBLIC_API_URL`
-  and the auth service calls real endpoints instead of the mock store.
+- `src/services/api.ts` calls real auth endpoints when `NEXT_PUBLIC_API_URL` is set
+  in `.env.local`; copy `.env.example` and set it to the backend base URL. Login
+  sends only the email and password and uses the returned role to select a dashboard.
 - Theme tokens live in `src/theme.ts`; Ant Design tokens are the only styling system
   (no Tailwind).

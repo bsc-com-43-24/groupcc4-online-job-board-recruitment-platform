@@ -6,10 +6,8 @@ import {
   Button,
   Card,
   Col,
-  Empty,
   List,
   Row,
-  Skeleton,
   Space,
   Statistic,
   Table,
@@ -20,6 +18,9 @@ import type { TableProps } from 'antd';
 import { BriefcaseBusiness, Users } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
+import EmptyState from '@/components/ui/EmptyState';
+import InterviewDetails from '@/components/InterviewDetails';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import { ApplicationStatusTag, JobStatusTag } from '@/components/StatusTag';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useEmployerApplications, useEmployerJobs, useJobs } from '@/hooks/useStore';
@@ -70,6 +71,18 @@ export default function EmployerDashboardPage() {
         };
       }),
     [jobs, applications],
+  );
+
+  const scheduledInterviews = useMemo(
+    () =>
+      applications
+        .filter((application) => application.interview?.status === 'Scheduled')
+        .sort((a, b) => {
+          const aStart = `${a.interview?.date}T${a.interview?.time}`;
+          const bStart = `${b.interview?.date}T${b.interview?.time}`;
+          return aStart.localeCompare(bStart);
+        }),
+    [applications],
   );
 
   const columns: TableProps<(typeof jobRows)[number]>['columns'] = [
@@ -131,7 +144,7 @@ export default function EmployerDashboardPage() {
   if (!hydrated) {
     return (
       <PageContainer>
-        <Skeleton active paragraph={{ rows: 10 }} />
+        <PageSkeleton rows={10} />
       </PageContainer>
     );
   }
@@ -210,9 +223,14 @@ export default function EmployerDashboardPage() {
                 scroll={{ x: 720 }}
               />
             ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="You haven't posted a vacancy yet."
+              <EmptyState
+                title="You haven't posted a vacancy yet"
+                description="Post your first vacancy to see it here."
+                action={
+                  <Link href="/employer/jobs/new">
+                    <Button type="primary">Post a vacancy</Button>
+                  </Link>
+                }
               />
             )}
           </Card>
@@ -251,14 +269,53 @@ export default function EmployerDashboardPage() {
                 )}
               />
             ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No applicants yet."
+              <EmptyState
+                title="No applicants yet"
+                description="New applications will appear here."
               />
             )}
           </Card>
         </Col>
       </Row>
+
+      <Card
+        title="Scheduled interviews"
+        style={{ marginTop: 16 }}
+        extra={
+          <Link href="/employer/applicants">
+            <Button type="link">Manage applicants</Button>
+          </Link>
+        }
+      >
+        {scheduledInterviews.length ? (
+          <List
+            dataSource={scheduledInterviews}
+            renderItem={(application) => (
+              <List.Item>
+                <List.Item.Meta
+                  avatar={<BriefcaseBusiness size={18} color="#2563eb" aria-hidden />}
+                  title={application.seekerName}
+                  description={
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                      <Link href={`/employer/jobs/${application.jobId}`}>
+                        {jobsById.get(application.jobId)?.title ?? 'Removed vacancy'}
+                      </Link>
+                      {application.interview ? (
+                        <InterviewDetails interview={application.interview} />
+                      ) : null}
+                    </Space>
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        ) : (
+          <EmptyState
+            title="No interviews scheduled"
+            description="Interviews you schedule with shortlisted applicants will appear here."
+          />
+        )}
+      </Card>
     </PageContainer>
   );
 }
