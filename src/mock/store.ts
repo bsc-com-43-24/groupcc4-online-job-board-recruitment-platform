@@ -80,6 +80,17 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function createNotification(
+  input: Omit<NotificationItem, 'id' | 'createdAt' | 'read'>,
+): NotificationItem {
+  return {
+    ...input,
+    id: `ntf-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Accounts                                                            */
 /* ------------------------------------------------------------------ */
@@ -116,7 +127,6 @@ export function createAccount(input: {
     name: input.name,
     companyName: input.companyName,
   };
-
   mockStore.set((state) => ({ ...state, accounts: [...state.accounts, account] }));
 
   if (account.role === 'SEEKER') {
@@ -134,6 +144,21 @@ export function createAccount(input: {
   }
 
   return account;
+}
+
+export function updateAccountPassword(accountId: string, password: string): boolean {
+  let updated = false;
+  mockStore.set((state) => ({
+    ...state,
+    accounts: state.accounts.map((account) => {
+      if (account.id !== accountId) {
+        return account;
+      }
+      updated = true;
+      return { ...account, password };
+    }),
+  }));
+  return updated;
 }
 
 /* ------------------------------------------------------------------ */
@@ -222,10 +247,20 @@ export function applyToJob(input: {
     coverLetter: input.coverLetter,
     cvName: input.cvName,
   };
+  const notification = createNotification({
+    userId: input.job.employerId,
+    title: 'New application received',
+    detail: `${input.seekerName} applied for ${input.job.title}.`,
+    kind: 'NEW_APPLICATION',
+    href: `/employer/jobs/${input.job.id}`,
+    applicationId: application.id,
+    jobId: input.job.id,
+  });
 
   mockStore.set((state) => ({
     ...state,
     applications: [application, ...state.applications],
+    notifications: [notification, ...state.notifications],
   }));
 
   return application;
@@ -235,12 +270,119 @@ export function setApplicationStatus(
   applicationId: string,
   status: ApplicationStatus,
 ): void {
-  mockStore.set((state) => ({
-    ...state,
-    applications: state.applications.map((application) =>
-      application.id === applicationId ? { ...application, status } : application,
-    ),
-  }));
+  mockStore.set((state) => {
+    const application = state.applications.find((item) => item.id === applicationId);
+    if (!application || application.status === status) {
+      return state;
+    }
+
+    const job = state.jobs.find((item) => item.id === application.jobId);
+    const statusMessages: Partial<Record<ApplicationStatus, string>> = {
+      Shortlisted: 'Your application was shortlisted',
+      Hired: 'Congratulations, you were hired',
+      Rejected: 'Your application was not selected',
+    };
+    const title = statusMessages[status];
+    const notification = title
+      ? createNotification({
+          userId: application.seekerId,
+          title,
+          detail: `${job?.company ?? 'The employer'} updated your application for ${job?.title ?? 'a vacancy'} to ${status}.`,
+          kind: 'APPLICATION_STATUS',
+          href: `/seeker/applications#application-${application.id}`,
+          applicationId: application.id,
+          jobId: application.jobId,
+        })
+      : null;
+
+    return {
+      ...state,
+      applications: state.applications.map((item) =>
+        item.id === applicationId ? { ...item, status } : item,
+      ),
+      notifications: notification ? [notification, ...state.notifications] : state.notifications,
+    };
+  });
+}
+
+export function withdrawApplication(applicationId: string): boolean {
+  let withdrawn = false;
+  mockStore.set((state) => {
+    const application = state.applications.find((item) => item.id === applicationId);
+    if (
+      !application ||
+      ['Hired', 'Rejected', 'Withdrawn'].includes(application.status)
+    ) {
+      return state;
+    }
+
+    const job = state.jobs.find((item) => item.id === application.jobId);
+    const notification = job
+      ? createNotification({
+          userId: job.employerId,
+          title: 'Application withdrawn',
+          detail: `${application.seekerName} withdrew their application for ${job.title}.`,
+          kind: 'APPLICATION_WITHDRAWN',
+          href: `/employer/jobs/${job.id}`,
+          applicationId: application.id,
+          jobId: job.id,
+        })
+      : null;
+    withdrawn = true;
+
+    return {
+      ...state,
+      applications: state.applications.map((item) =>
+        item.id === applicationId ? { ...item, status: 'Withdrawn' } : item,
+      ),
+      notifications: notification ? [notification, ...state.notifications] : state.notifications,
+    };
+  });
+  return withdrawn;
+}
+
+export function syncVacancyClosingNotifications(employerId: string): void {
+  const state = mockStore.get();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const existingKeys = new Set(
+    state.notifications
+      .filter((item) => item.kind === 'VACANCY_CLOSING_SOON')
+      .map((item) => item.eventKey),
+  );
+  const closingNotifications = state.jobs.flatMap((job) => {
+    if (job.employerId !== employerId || job.status !== 'Active') {
+      return [];
+    }
+
+    const [year, month, day] = job.deadline.split('-').map(Number);
+    const deadline = new Date(year, month - 1, day);
+    const daysRemaining = Math.round((deadline.getTime() - today.getTime()) / 86400000);
+    const eventKey = `vacancy-closing:${job.id}:${job.deadline}`;
+    if (daysRemaining < 0 || daysRemaining > 7 || existingKeys.has(eventKey)) {
+      return [];
+    }
+
+    return [
+      createNotification({
+        userId: employerId,
+        title: 'Vacancy closing soon',
+        detail: `${job.title} ${daysRemaining === 0 ? 'closes today' : daysRemaining === 1 ? 'closes tomorrow' : `closes in ${daysRemaining} days`}.`,
+        kind: 'VACANCY_CLOSING_SOON',
+        href: `/employer/jobs/${job.id}`,
+        jobId: job.id,
+        eventKey,
+      }),
+    ];
+  });
+
+  if (closingNotifications.length) {
+    mockStore.set((current) => ({
+      ...current,
+      notifications: [...closingNotifications, ...current.notifications],
+    }));
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -286,6 +428,17 @@ export function markNotificationsRead(userId: string): void {
     ...state,
     notifications: state.notifications.map((notification) =>
       notification.userId === userId ? { ...notification, read: true } : notification,
+    ),
+  }));
+}
+
+export function markNotificationRead(userId: string, notificationId: string): void {
+  mockStore.set((state) => ({
+    ...state,
+    notifications: state.notifications.map((notification) =>
+      notification.userId === userId && notification.id === notificationId
+        ? { ...notification, read: true }
+        : notification,
     ),
   }));
 }

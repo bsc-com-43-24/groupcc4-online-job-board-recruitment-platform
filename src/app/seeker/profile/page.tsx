@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import {
   Alert,
   App as AntApp,
+  Avatar,
   Button,
   Card,
   Col,
@@ -18,7 +19,7 @@ import {
   Upload,
 } from 'antd';
 import type { UploadProps } from 'antd';
-import { IdCard, Mail, MapPin, Phone, UploadCloud } from 'lucide-react';
+import { IdCard, Mail, MapPin, Phone, UploadCloud, UserRound } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
 import { useHydrated } from '@/hooks/useHydrated';
@@ -29,7 +30,13 @@ import { useSession } from '@/services/session';
 const { Title, Text } = Typography;
 
 const MAX_CV_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = /\.(pdf|docx?)$/i;
+const MAX_PROFILE_PICTURE_BYTES = 1 * 1024 * 1024;
+const PROFILE_PICTURE_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+};
 
 interface ProfileFormValues {
   fullName: string;
@@ -70,8 +77,12 @@ export default function SeekerProfilePage() {
   const { message } = AntApp.useApp();
   const [form] = Form.useForm<ProfileFormValues>();
   const [cvName, setCvName] = useState<string | null>(profile?.cvName ?? null);
+  const [profilePicture, setProfilePicture] = useState<string | null>(
+    profile?.profilePicture ?? null,
+  );
   const [saving, setSaving] = useState(false);
   const [uploadKey, setUploadKey] = useState(0);
+  const [pictureUploadKey, setPictureUploadKey] = useState(0);
 
   if (!hydrated || !session) {
     return (
@@ -84,21 +95,52 @@ export default function SeekerProfilePage() {
   const uploadProps: UploadProps = {
     name: 'cv',
     maxCount: 1,
-    accept: '.pdf,.doc,.docx',
-    beforeUpload: (file) => {
-      const extensionAllowed = ACCEPTED_EXTENSIONS.test(file.name);
-      if (!extensionAllowed) {
-        message.error('Attach a PDF or Word document.');
+    accept: '.pdf,application/pdf',
+    beforeUpload: async (file) => {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        message.error('Upload a PDF file only.');
         return Upload.LIST_IGNORE;
       }
       if (file.size > MAX_CV_BYTES) {
         message.error('Your CV must be 5 MB or smaller.');
         return Upload.LIST_IGNORE;
       }
+      if ((await file.slice(0, 5).text()) !== '%PDF-') {
+        message.error('This file is not a valid PDF.');
+        return Upload.LIST_IGNORE;
+      }
       return false;
     },
     onChange: ({ fileList }) => {
       setCvName(fileList[0]?.name ?? null);
+    },
+  };
+
+  const profilePictureUploadProps: UploadProps = {
+    name: 'profile-picture',
+    accept: '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp',
+    showUploadList: false,
+    beforeUpload: (file) => {
+      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+      if (!PROFILE_PICTURE_TYPES[extension] || file.type !== PROFILE_PICTURE_TYPES[extension]) {
+        message.error('Choose a JPG, PNG, or WebP image.');
+        return Upload.LIST_IGNORE;
+      }
+      if (file.size > MAX_PROFILE_PICTURE_BYTES) {
+        message.error('Your profile picture must be 1 MB or smaller.');
+        return Upload.LIST_IGNORE;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setProfilePicture(reader.result);
+        }
+        setPictureUploadKey((key) => key + 1);
+      };
+      reader.onerror = () => message.error('Could not read the selected image.');
+      reader.readAsDataURL(file);
+      return false;
     },
   };
 
@@ -117,6 +159,7 @@ export default function SeekerProfilePage() {
       education: values.education ?? '',
       experience: values.experience ?? '',
       cvName: cvName ?? undefined,
+      profilePicture: profilePicture ?? undefined,
     });
 
     setSaving(false);
@@ -288,6 +331,27 @@ export default function SeekerProfilePage() {
         </Col>
 
         <Col xs={24} lg={8}>
+          <Card title="Profile picture" style={{ marginBottom: 16 }}>
+            <Space direction="vertical" align="center" size={12} style={{ width: '100%' }}>
+              <Avatar
+                size={96}
+                src={profilePicture ?? undefined}
+                icon={!profilePicture ? <UserRound size={36} aria-hidden /> : undefined}
+              />
+              <Upload key={pictureUploadKey} {...profilePictureUploadProps}>
+                <Button icon={<UploadCloud size={16} aria-hidden />}>Upload picture</Button>
+              </Upload>
+              {profilePicture ? (
+                <Button type="link" danger onClick={() => setProfilePicture(null)}>
+                  Remove picture
+                </Button>
+              ) : null}
+              <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>
+                JPG, PNG, or WebP. Maximum size: 1 MB.
+              </Text>
+            </Space>
+          </Card>
+
           <Card title="CV">
             <Space direction="vertical" size={12} style={{ width: '100%' }}>
               {cvName ? (
@@ -313,7 +377,7 @@ export default function SeekerProfilePage() {
                   Upload or replace your CV
                 </p>
                 <p className="ant-upload-hint" style={{ fontSize: 12 }}>
-                  PDF or Word, up to 5 MB
+                  PDF only, up to 5 MB
                 </p>
               </Upload.Dragger>
 

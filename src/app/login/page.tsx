@@ -36,6 +36,7 @@ function LoginContent() {
   const [form] = Form.useForm<LoginValues>();
 
   const roleParam = searchParams.get('role');
+  const resetSuccess = searchParams.get('reset') === 'success';
   const [activeRole, setActiveRole] = useState<Role>(
     roleParam === 'EMPLOYER' ? 'EMPLOYER' : 'SEEKER',
   );
@@ -125,6 +126,15 @@ function LoginContent() {
           ]}
         />
 
+        {resetSuccess ? (
+          <Alert
+            type="success"
+            showIcon
+            message="Password reset successfully. Sign in with your new password."
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
+
         {error ? (
           <Alert
             type="error"
@@ -172,6 +182,10 @@ function LoginContent() {
               autoComplete="current-password"
             />
           </Form.Item>
+
+          <div style={{ marginTop: -12, marginBottom: 12, textAlign: 'right' }}>
+            <Link href="/forgot-password">Forgot password?</Link>
+          </div>
 
           <Button
             type="primary"

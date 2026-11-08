@@ -27,6 +27,11 @@ export interface ApiAuthResponse {
   user?: ApiAuthUser;
 }
 
+export interface ApiActionResponse {
+  success: boolean;
+  message?: string;
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
@@ -65,4 +70,15 @@ export function registerRequest(input: {
   companyName?: string;
 }): Promise<ApiAuthResponse> {
   return post<ApiAuthResponse>('/auth/register', input);
+}
+
+export function requestPasswordResetRequest(email: string): Promise<ApiActionResponse> {
+  return post<ApiActionResponse>('/auth/forgot-password', { email });
+}
+
+export function resetPasswordRequest(input: {
+  token: string;
+  password: string;
+}): Promise<ApiActionResponse> {
+  return post<ApiActionResponse>('/auth/reset-password', input);
 }

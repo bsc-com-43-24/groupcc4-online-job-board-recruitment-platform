@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   App as AntApp,
   Avatar,
+  Badge,
   Button,
   Divider,
   Drawer,
@@ -18,6 +19,7 @@ import {
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
+  Bell,
   BriefcaseBusiness,
   FileText,
   LayoutDashboard,
@@ -31,8 +33,15 @@ import {
   Users,
 } from 'lucide-react';
 import { clearSession, roleHome, useSession } from '@/services/session';
-import { resetMockStore } from '@/mock/store';
+import {
+  markNotificationRead,
+  markNotificationsRead,
+  resetMockStore,
+  syncVacancyClosingNotifications,
+} from '@/mock/store';
+import { useNotifications } from '@/hooks/useStore';
 import { useThemeMode } from './ThemeProvider';
+import NotificationsPanel from './NotificationsPanel';
 
 const { Header } = Layout;
 
@@ -107,10 +116,19 @@ export default function SiteHeader() {
   const pathname = usePathname() ?? '/';
   const router = useRouter();
   const session = useSession();
+  const notifications = useNotifications(session?.userId);
   const { mode, toggle } = useThemeMode();
   const { message, modal } = AntApp.useApp();
   const { token } = theme.useToken();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (session?.role === 'EMPLOYER') {
+      syncVacancyClosingNotifications(session.userId);
+    }
+  }, [session?.role, session?.userId]);
+
+  const unreadNotificationCount = notifications.filter((item) => !item.read).length;
 
   const navItems = useMemo(() => {
     if (!session) {
@@ -309,7 +327,7 @@ export default function SiteHeader() {
         >
           <BriefcaseBusiness size={18} />
         </span>
-        JobBoard
+        Home
       </Link>
 
       <nav aria-label="Main" className="site-nav-desktop" style={{ flex: 1, minWidth: 0 }}>
@@ -329,6 +347,43 @@ export default function SiteHeader() {
               Post a job
             </Button>
           </Link>
+        ) : null}
+        {session ? (
+          <Dropdown
+            trigger={['click']}
+            placement="bottomRight"
+            dropdownRender={() => (
+              <div
+                style={{
+                  width: 'min(360px, calc(100vw - 32px))',
+                  maxHeight: '70vh',
+                  overflowY: 'auto',
+                  background: token.colorBgElevated,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  borderRadius: token.borderRadiusLG,
+                  boxShadow: token.boxShadowSecondary,
+                  padding: 16,
+                }}
+              >
+                <NotificationsPanel
+                  notifications={notifications}
+                  compact
+                  onMarkRead={(id) => markNotificationRead(session.userId, id)}
+                  onMarkAllRead={() => markNotificationsRead(session.userId)}
+                />
+              </div>
+            )}
+          >
+            <Button
+              type="text"
+              aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ''}`}
+              icon={
+                <Badge count={unreadNotificationCount} size="small" overflowCount={99}>
+                  <Bell size={18} aria-hidden />
+                </Badge>
+              }
+            />
+          </Dropdown>
         ) : null}
         {themeToggle}
         {authActions}

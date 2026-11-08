@@ -500,6 +500,10 @@ export const seedState: MockState = {
       detail: 'Mighty Media shortlisted you for Frontend Engineer.',
       createdAt: '2026-10-21',
       read: false,
+      kind: 'APPLICATION_STATUS',
+      href: '/seeker/applications#application-APP-1002',
+      applicationId: 'APP-1002',
+      jobId: 'job-103',
     },
     {
       id: 'ntf-2',
@@ -508,6 +512,10 @@ export const seedState: MockState = {
       detail: 'Malaika Labs would like to interview you for Data Engineer.',
       createdAt: '2026-10-23',
       read: false,
+      kind: 'APPLICATION_STATUS',
+      href: '/seeker/applications#application-APP-1005',
+      applicationId: 'APP-1005',
+      jobId: 'job-106',
     },
     {
       id: 'ntf-3',
@@ -516,6 +524,8 @@ export const seedState: MockState = {
       detail: 'Add your education history to improve your match score.',
       createdAt: '2026-10-19',
       read: true,
+      kind: 'GENERAL',
+      href: '/seeker/profile',
     },
   ],
 };
