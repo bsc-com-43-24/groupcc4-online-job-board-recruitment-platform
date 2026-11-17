@@ -5,12 +5,14 @@ import { clearSession } from '@/services/session';
  * Real-backend seam.
  *
  * The project scope is frontend-only, so this module is inert unless
- * `NEXT_PUBLIC_API_URL` is set at build time. When the backend exists, point
- * the variable at it and the auth service starts using these calls - no screen
- * has to change.
+ * `NEXT_PUBLIC_API_BASE_URL` (or the legacy `NEXT_PUBLIC_API_URL`) is set at
+ * build time. When configured, the auth service sends requests through the
+ * same-origin Next.js route handler, avoiding browser CORS preflight failures.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '');
+const BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL
+)?.replace(/\/+$/, '');
 
 export const apiConfigured = Boolean(BASE_URL);
 
@@ -68,7 +70,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    response = await fetch(`/api${path}`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

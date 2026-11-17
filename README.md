@@ -81,8 +81,9 @@ are redirected by `src/proxy.ts`.
   and the hydrated client agree.
 - `src/mock/types.ts` defines the shared domain model, including one canonical
   `ApplicationStatus` lifecycle used everywhere.
-- `src/services/api.ts` calls real auth endpoints when `NEXT_PUBLIC_API_URL` is set
-  in `.env.local`; copy `.env.example` and set it to the backend base URL. Login
-  sends only the email and password and uses the returned role to select a dashboard.
+- `src/services/api.ts` calls real auth endpoints when `NEXT_PUBLIC_API_BASE_URL` is
+  set in `.env.local` to the backend base URL. The legacy `NEXT_PUBLIC_API_URL`
+  name is also supported. Login sends only the email and password and uses the
+  returned role to select a dashboard.
 - Theme tokens live in `src/theme.ts`; Ant Design tokens are the only styling system
   (no Tailwind).

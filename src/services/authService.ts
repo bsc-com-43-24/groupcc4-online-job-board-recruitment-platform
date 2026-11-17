@@ -146,9 +146,10 @@ function removeResetRecord(token: string): void {
 /**
  * Authentication against the configured backend or the demo store.
  *
- * When `NEXT_PUBLIC_API_URL` is configured the real endpoints are used
- * instead; there is no silent fallback to mock data once a backend exists, so
- * a broken backend is visible rather than disguised.
+ * When `NEXT_PUBLIC_API_BASE_URL` (or the legacy `NEXT_PUBLIC_API_URL`) is
+ * configured the real endpoints are used instead; there is no silent fallback
+ * to mock data once a backend exists, so a broken backend is visible rather
+ * than disguised.
  */
 export const authService = {
   async login(input: LoginInput): Promise<AuthResponse> {
