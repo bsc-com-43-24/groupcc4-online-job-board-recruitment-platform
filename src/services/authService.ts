@@ -7,7 +7,7 @@ import {
   profileApi,
   type UserResponse,
 } from './api';
-import { clearSession, persistSession } from './session';
+import { clearSession, persistSession, updateSessionName } from './session';
 
 export interface AuthUser {
   id: string;
@@ -84,9 +84,9 @@ async function resolveDisplayName(user: UserResponse): Promise<string> {
 }
 
 async function startSession(token: string): Promise<AuthResponse> {
-  const user = await authApi.currentUser();
+  const user = await authApi.currentUser(token);
 
-  if (user.accountStatus !== 'ACTIVE') {
+  if (user.accountStatus === 'SUSPENDED' || user.accountStatus === 'REMOVED') {
     clearSession();
     return {
       success: false,
@@ -94,8 +94,8 @@ async function startSession(token: string): Promise<AuthResponse> {
     };
   }
 
-  const name = await resolveDisplayName(user);
-  const authUser = toAuthUser(user, name);
+  const provisionalName = emailPrefix(user.email);
+  const authUser = toAuthUser(user, provisionalName);
 
   persistSession(
     {
@@ -107,11 +107,16 @@ async function startSession(token: string): Promise<AuthResponse> {
     token,
   );
 
+  const name = await resolveDisplayName(user);
+  if (name && name !== provisionalName) {
+    updateSessionName(name);
+  }
+
   return {
     success: true,
     message: 'Signed in.',
     token,
-    user: authUser,
+    user: { ...authUser, name },
   };
 }
 

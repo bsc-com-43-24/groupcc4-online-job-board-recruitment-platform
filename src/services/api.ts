@@ -230,6 +230,7 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   auth?: boolean;
+  token?: string;
   query?: Record<string, string | number | boolean | undefined | null>;
   redirectOnUnauthorized?: boolean;
 }
@@ -291,7 +292,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     query,
     redirectOnUnauthorized = auth,
   } = options;
-  const token = auth ? getStoredToken() : null;
+  const token = auth ? options.token ?? getStoredToken() : null;
   const headers: Record<string, string> = { Accept: 'application/json' };
 
   if (token) {
@@ -397,7 +398,6 @@ export const authApi = {
       body: {
         email: input.email,
         password: input.password,
-        passwordByteLengthValid: new TextEncoder().encode(input.password).length <= 72,
       },
     });
   },
@@ -409,17 +409,16 @@ export const authApi = {
         email: input.email,
         password: input.password,
         role: 'JOB_SEEKER',
-        roleAllowed: true,
-        passwordByteLengthValid: new TextEncoder().encode(input.password).length <= 72,
       },
     });
   },
-  currentUser(): Promise<UserResponse> {
-    return request<CurrentUserResponse>('/api/auth/me')
+  currentUser(token?: string): Promise<UserResponse> {
+    const options = { token, redirectOnUnauthorized: false };
+    return request<CurrentUserResponse>('/api/auth/me', options)
       .then((response) => ({ ...response, accountStatus: response.status }))
       .catch((error: unknown) => {
         if (error instanceof ApiRequestError && error.status === 404) {
-          return request<UserResponse>('/api/users/me');
+          return request<UserResponse>('/api/users/me', options);
         }
         throw error;
       });
@@ -430,8 +429,6 @@ export const authApi = {
       body: {
         currentPassword: input.currentPassword,
         newPassword: input.newPassword,
-        newPasswordDifferent: input.currentPassword !== input.newPassword,
-        newPasswordByteLengthValid: new TextEncoder().encode(input.newPassword).length <= 72,
       },
     });
   },
@@ -449,7 +446,6 @@ export const authApi = {
       body: {
         resetToken: input.token,
         newPassword: input.password,
-        newPasswordByteLengthValid: new TextEncoder().encode(input.password).length <= 72,
       },
     });
   },
