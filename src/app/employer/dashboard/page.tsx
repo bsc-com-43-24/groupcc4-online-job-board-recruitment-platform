@@ -19,7 +19,6 @@ import { BriefcaseBusiness, Users } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
 import EmptyState from '@/components/ui/EmptyState';
-import InterviewDetails from '@/components/InterviewDetails';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import { ApplicationStatusTag, JobStatusTag } from '@/components/StatusTag';
 import { useHydrated } from '@/hooks/useHydrated';
@@ -44,15 +43,15 @@ export default function EmployerDashboardPage() {
     const shortlisted = applications.filter(
       (application) => application.status === 'Shortlisted',
     ).length;
-    const hired = applications.filter(
-      (application) => application.status === 'Hired',
+    const rejected = applications.filter(
+      (application) => application.status === 'Rejected',
     ).length;
 
     return [
       { label: 'Active vacancies', value: active },
       { label: 'Total applicants', value: applications.length },
       { label: 'Shortlisted', value: shortlisted },
-      { label: 'Hired', value: hired },
+      { label: 'Rejected', value: rejected },
     ];
   }, [jobs, applications]);
 
@@ -73,15 +72,11 @@ export default function EmployerDashboardPage() {
     [jobs, applications],
   );
 
-  const scheduledInterviews = useMemo(
+  const shortlistedApplications = useMemo(
     () =>
       applications
-        .filter((application) => application.interview?.status === 'Scheduled')
-        .sort((a, b) => {
-          const aStart = `${a.interview?.date}T${a.interview?.time}`;
-          const bStart = `${b.interview?.date}T${b.interview?.time}`;
-          return aStart.localeCompare(bStart);
-        }),
+        .filter((application) => application.status === 'Shortlisted')
+        .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)),
     [applications],
   );
 
@@ -279,40 +274,41 @@ export default function EmployerDashboardPage() {
       </Row>
 
       <Card
-        title="Scheduled interviews"
+        title="Shortlisted applicants"
         style={{ marginTop: 16 }}
         extra={
-          <Link href="/employer/applicants">
-            <Button type="link">Manage applicants</Button>
+          <Link href="/employer/shortlist">
+            <Button type="link">View retained shortlist</Button>
           </Link>
         }
       >
-        {scheduledInterviews.length ? (
+        {shortlistedApplications.length ? (
           <List
-            dataSource={scheduledInterviews}
+            dataSource={shortlistedApplications.slice(0, 5)}
             renderItem={(application) => (
               <List.Item>
                 <List.Item.Meta
                   avatar={<BriefcaseBusiness size={18} color="#2563eb" aria-hidden />}
                   title={application.seekerName}
                   description={
-                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                    <Space direction="vertical" size={4}>
                       <Link href={`/employer/jobs/${application.jobId}`}>
                         {jobsById.get(application.jobId)?.title ?? 'Removed vacancy'}
                       </Link>
-                      {application.interview ? (
-                        <InterviewDetails interview={application.interview} />
-                      ) : null}
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Applied {formatDate(application.appliedAt)}
+                      </Text>
                     </Space>
                   }
                 />
+                <ApplicationStatusTag status={application.status} />
               </List.Item>
             )}
           />
         ) : (
           <EmptyState
-            title="No interviews scheduled"
-            description="Interviews you schedule with shortlisted applicants will appear here."
+            title="No shortlisted applicants yet"
+            description="Shortlist candidates from the applicants page to see them here."
           />
         )}
       </Card>

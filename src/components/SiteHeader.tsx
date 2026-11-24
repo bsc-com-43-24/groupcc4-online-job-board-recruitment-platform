@@ -27,12 +27,12 @@ import {
   Menu as MenuIcon,
   Moon,
   Plus,
-  RefreshCcw,
   Sun,
   UserRound,
   Users,
 } from 'lucide-react';
-import { clearSession, roleHome, useSession } from '@/services/session';
+import { roleHome, useSession } from '@/services/session';
+import { authService } from '@/services/authService';
 import {
   markNotificationRead,
   markNotificationsRead,
@@ -100,6 +100,29 @@ const EMPLOYER_NAV: NavItem[] = [
     label: 'Applicants',
     icon: <Users size={ICON_SIZE} aria-hidden />,
   },
+  {
+    key: '/employer/shortlist',
+    label: 'Shortlist',
+    icon: <UserRound size={ICON_SIZE} aria-hidden />,
+  },
+  {
+    key: '/employer/verification',
+    label: 'Verification',
+    icon: <FileText size={ICON_SIZE} aria-hidden />,
+  },
+];
+
+const ADMIN_NAV: NavItem[] = [
+  {
+    key: '/admin/dashboard',
+    label: 'Admin',
+    icon: <LayoutDashboard size={ICON_SIZE} aria-hidden />,
+  },
+  {
+    key: '/admin/employer-requests',
+    label: 'Employer requests',
+    icon: <Users size={ICON_SIZE} aria-hidden />,
+  },
 ];
 
 function resolveActiveKey(pathname: string, items: NavItem[]): string | undefined {
@@ -118,7 +141,7 @@ export default function SiteHeader() {
   const session = useSession();
   const notifications = useNotifications(session?.userId);
   const { mode, toggle } = useThemeMode();
-  const { message, modal } = AntApp.useApp();
+  const { message } = AntApp.useApp();
   const { token } = theme.useToken();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -133,6 +156,9 @@ export default function SiteHeader() {
   const navItems = useMemo(() => {
     if (!session) {
       return ANONYMOUS_NAV;
+    }
+    if (session.role === 'ADMIN') {
+      return ADMIN_NAV;
     }
     return session.role === 'EMPLOYER' ? EMPLOYER_NAV : SEEKER_NAV;
   }, [session]);
@@ -150,27 +176,12 @@ export default function SiteHeader() {
     router.push(key);
   };
 
-  const handleLogout = () => {
-    clearSession();
+  const handleLogout = async () => {
+    await authService.logout();
+    await resetMockStore();
     message.success('You have been signed out.');
     router.push('/login');
     router.refresh();
-  };
-
-  const handleResetDemo = () => {
-    modal.confirm({
-      title: 'Reset demo data?',
-      content:
-        'This restores the sample jobs, applications and profiles, and removes anything you added in this browser.',
-      okText: 'Reset data',
-      okButtonProps: { danger: true },
-      cancelText: 'Cancel',
-      onOk: () => {
-        resetMockStore();
-        message.success('Demo data restored.');
-        router.refresh();
-      },
-    });
   };
 
   const accountItems: MenuProps['items'] = session
@@ -182,7 +193,11 @@ export default function SiteHeader() {
             <div style={{ padding: '4px 0' }}>
               <div style={{ fontWeight: 600 }}>{session.name}</div>
               <div style={{ fontSize: 12, opacity: 0.7 }}>
-                {session.role === 'EMPLOYER' ? 'Employer account' : 'Job seeker account'}
+                {session.role === 'ADMIN'
+                  ? 'Administrator account'
+                  : session.role === 'EMPLOYER'
+                    ? 'Employer account'
+                    : 'Job seeker account'}
               </div>
             </div>
           ),
@@ -199,17 +214,25 @@ export default function SiteHeader() {
               label: 'Post a job',
               icon: <Plus size={ICON_SIZE} aria-hidden />,
             }
-          : {
-              key: '/seeker/profile',
-              label: 'My profile',
-              icon: <UserRound size={ICON_SIZE} aria-hidden />,
-            },
+          : session.role === 'ADMIN'
+            ? {
+                key: '/admin/employer-requests',
+                label: 'Employer requests',
+                icon: <Users size={ICON_SIZE} aria-hidden />,
+              }
+            : {
+                key: '/seeker/profile',
+                label: 'My profile',
+                icon: <UserRound size={ICON_SIZE} aria-hidden />,
+              },
+        session.role === 'JOB_SEEKER'
+          ? {
+              key: '/employer/verification',
+              label: 'Become an employer',
+              icon: <BriefcaseBusiness size={ICON_SIZE} aria-hidden />,
+            }
+          : null,
         { type: 'divider' },
-        {
-          key: 'reset-demo',
-          label: 'Reset demo data',
-          icon: <RefreshCcw size={ICON_SIZE} aria-hidden />,
-        },
         {
           key: 'logout',
           label: 'Log out',
@@ -222,10 +245,6 @@ export default function SiteHeader() {
   const handleAccountClick: MenuProps['onClick'] = ({ key }) => {
     if (key === 'logout') {
       handleLogout();
-      return;
-    }
-    if (key === 'reset-demo') {
-      handleResetDemo();
       return;
     }
     if (key.startsWith('/')) {

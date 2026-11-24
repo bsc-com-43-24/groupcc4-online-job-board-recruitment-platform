@@ -5,7 +5,7 @@
  * never need to change when the mock store is swapped for a real API.
  */
 
-export type Role = 'SEEKER' | 'EMPLOYER';
+export type Role = 'JOB_SEEKER' | 'EMPLOYER' | 'ADMIN';
 
 export type JobType = 'Full-time' | 'Part-time' | 'Contract' | 'Internship';
 
@@ -18,33 +18,24 @@ export type JobCategory =
   | 'Sales'
   | 'Design & Research';
 
-export type JobStatus = 'Draft' | 'Active' | 'Closed';
+export type JobStatus = 'Active' | 'Closed';
 
 /**
  * The single application lifecycle used by every screen. Previously four
  * different vocabularies existed for the same states.
  */
-export type ApplicationStatus =
-  | 'Submitted'
-  | 'Under Review'
-  | 'Shortlisted'
-  | 'Interviewed'
-  | 'Hired'
-  | 'Rejected'
-  | 'Withdrawn';
+export type ApplicationStatus = 'Submitted' | 'Shortlisted' | 'Rejected';
 
-export const APPLICATION_STATUSES: Exclude<ApplicationStatus, 'Withdrawn'>[] = [
+export const APPLICATION_STATUSES: ApplicationStatus[] = [
   'Submitted',
-  'Under Review',
   'Shortlisted',
-  'Interviewed',
-  'Hired',
   'Rejected',
 ];
 
 export interface Job {
   id: string;
   employerId: string;
+  companyId?: string;
   title: string;
   company: string;
   location: string;
@@ -77,19 +68,6 @@ export interface Application {
   status: ApplicationStatus;
   coverLetter?: string;
   cvName?: string;
-  interview?: Interview;
-}
-
-export interface Interview {
-  /** ISO date (yyyy-mm-dd), interpreted in the employer's local timezone. */
-  date: string;
-  /** Local time in 24-hour HH:mm format. */
-  time: string;
-  mode: 'Online' | 'In person';
-  location?: string;
-  meetingLink?: string;
-  notes?: string;
-  status: 'Scheduled' | 'Cancelled';
 }
 
 export interface SeekerProfile {
@@ -102,17 +80,9 @@ export interface SeekerProfile {
   skills: string[];
   education: string;
   experience: string;
+  dateOfBirth?: string;
   cvName?: string;
   profilePicture?: string;
-}
-
-export interface Account {
-  id: string;
-  email: string;
-  password: string;
-  role: Role;
-  name: string;
-  companyName?: string;
 }
 
 export interface NotificationItem {
@@ -128,9 +98,6 @@ export interface NotificationItem {
     | 'NEW_APPLICATION'
     | 'APPLICATION_WITHDRAWN'
     | 'VACANCY_CLOSING_SOON'
-    | 'INTERVIEW_SCHEDULED'
-    | 'INTERVIEW_UPDATED'
-    | 'INTERVIEW_CANCELLED'
     | 'GENERAL';
   href?: string;
   applicationId?: string;
@@ -138,10 +105,72 @@ export interface NotificationItem {
   eventKey?: string;
 }
 
+export interface CompanyView {
+  id: string;
+  name: string;
+  description?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  location?: string;
+  vatNumber?: string;
+  registrationNumber?: string;
+}
+
+export interface EmployerRequestView {
+  id: string;
+  userId: string;
+  companyName: string;
+  businessDescription: string;
+  contactEmail: string;
+  contactPhone: string;
+  location: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string;
+  vatNumber?: string;
+  registrationNumber?: string;
+  companyId?: string;
+  documentOriginalFilename?: string;
+  createdAt?: string;
+}
+
+export interface AdminUserView {
+  id: string;
+  email: string;
+  role: Role;
+  accountStatus: 'ACTIVE' | 'SUSPENDED' | 'REMOVED';
+  createdAt?: string;
+}
+
+export interface ShortlistView {
+  id: string;
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  jobSeekerId: string;
+  applicantName: string;
+  applicantEmail?: string;
+  cvName?: string;
+  shortlistedAt?: string;
+}
+
+export interface DocumentView {
+  id: string;
+  name: string;
+  contentType: string;
+  byteSize: number;
+  createdAt?: string;
+}
+
 export interface MockState {
   jobs: Job[];
   applications: Application[];
   profiles: SeekerProfile[];
-  accounts: Account[];
   notifications: NotificationItem[];
+  companies?: CompanyView[];
+  employerRequests?: EmployerRequestView[];
+  adminUsers?: AdminUserView[];
+  shortlistedCandidates?: ShortlistView[];
+  documents?: DocumentView[];
+  loading?: boolean;
+  error?: string | null;
 }

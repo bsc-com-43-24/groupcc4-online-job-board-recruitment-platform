@@ -3,10 +3,12 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  Alert,
   App as AntApp,
   Button,
   Card,
   Drawer,
+  Popconfirm,
   Space,
   Table,
   Tag,
@@ -21,11 +23,17 @@ import { JobStatusTag } from '@/components/StatusTag';
 import JobForm, { toJobPatch } from '@/components/employer/JobForm';
 import type { JobFormValues } from '@/components/employer/JobForm';
 import { useHydrated } from '@/hooks/useHydrated';
-import { useEmployerApplications, useEmployerJobs } from '@/hooks/useStore';
+import {
+  useCompanies,
+  useEmployerApplications,
+  useEmployerJobs,
+  useMockState,
+} from '@/hooks/useStore';
 import { deadlineLabel } from '@/lib/format';
-import { updateJob } from '@/mock/store';
+import { closeJob, deleteJob, updateJob } from '@/mock/store';
+import { apiErrorMessage } from '@/services/api';
 import { useSession } from '@/services/session';
-import type { Job, JobStatus } from '@/mock/types';
+import type { Job } from '@/mock/types';
 
 const { Title, Text } = Typography;
 
@@ -38,10 +46,13 @@ export default function EmployerJobsPage() {
   const session = useSession();
   const jobs = useEmployerJobs(session?.userId);
   const applications = useEmployerApplications(session?.userId);
+  const companies = useCompanies();
+  const state = useMockState();
   const { message } = AntApp.useApp();
 
   const [editing, setEditing] = useState<Job | null>(null);
   const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const rows = useMemo<JobRow[]>(
     () =>
@@ -56,32 +67,48 @@ export default function EmployerJobsPage() {
     [jobs, applications],
   );
 
-  const handleSave = (values: JobFormValues, status: JobStatus) => {
+  const handleSave = async (values: JobFormValues) => {
     if (!editing) {
       return;
     }
 
     setSaving(true);
     try {
-      updateJob(editing.id, toJobPatch(values, status));
+      await updateJob(editing.id, {
+        ...toJobPatch(values),
+        employerId: editing.employerId,
+        company: editing.company,
+      });
       setEditing(null);
-      message.success(status === 'Active' ? 'Vacancy updated.' : 'Vacancy saved as draft.');
-    } catch {
-      message.error('Could not save this vacancy. Please try again.');
+      message.success('Vacancy updated.');
+    } catch (updateError) {
+      message.error(apiErrorMessage(updateError));
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleStatus = (job: Job) => {
-    const nextStatus = job.status === 'Closed' ? 'Active' : 'Closed';
+  const handleClose = async (job: Job) => {
+    setUpdatingId(job.id);
     try {
-      updateJob(job.id, { status: nextStatus });
-      message.success(
-        nextStatus === 'Closed' ? 'Vacancy closed to new applications.' : 'Vacancy reopened.',
-      );
-    } catch {
-      message.error('Could not update this vacancy. Please try again.');
+      await closeJob(job.id);
+      message.success('Vacancy closed to new applications.');
+    } catch (closeError) {
+      message.error(apiErrorMessage(closeError));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleDelete = async (job: Job) => {
+    setUpdatingId(job.id);
+    try {
+      await deleteJob(job.id);
+      message.success('Vacancy deleted.');
+    } catch (deleteError) {
+      message.error(apiErrorMessage(deleteError));
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -123,7 +150,7 @@ export default function EmployerJobsPage() {
     {
       title: '',
       key: 'actions',
-      width: 260,
+      width: 300,
       render: (_, record) => (
         <Space wrap size={4}>
           <Button
@@ -133,13 +160,29 @@ export default function EmployerJobsPage() {
           >
             Edit
           </Button>
-          <Button
-            type="link"
-            onClick={() => toggleStatus(record)}
-            danger={record.status !== 'Closed'}
+          {record.status === 'Active' ? (
+            <Popconfirm
+              title="Close this vacancy?"
+              description="Job seekers will no longer be able to apply."
+              okText="Close vacancy"
+              onConfirm={() => void handleClose(record)}
+            >
+              <Button type="link" loading={updatingId === record.id} danger>
+                Close
+              </Button>
+            </Popconfirm>
+          ) : null}
+          <Popconfirm
+            title="Delete this vacancy?"
+            description="This cannot be undone."
+            okText="Delete"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => void handleDelete(record)}
           >
-            {record.status === 'Closed' ? 'Reopen' : 'Close'}
-          </Button>
+            <Button type="link" loading={updatingId === record.id} danger>
+              Delete
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -169,6 +212,10 @@ export default function EmployerJobsPage() {
         </div>
       </Space>
 
+      {state.error ? (
+        <Alert type="error" showIcon message={state.error} style={{ marginBottom: 16 }} />
+      ) : null}
+
       <Card>
         {rows.length ? (
           <Table
@@ -176,7 +223,7 @@ export default function EmployerJobsPage() {
             columns={columns}
             dataSource={rows}
             pagination={rows.length > 10 ? { pageSize: 10 } : false}
-            scroll={{ x: 820 }}
+            scroll={{ x: 880 }}
           />
         ) : (
           <EmptyState
@@ -201,6 +248,7 @@ export default function EmployerJobsPage() {
         {editing ? (
           <JobForm
             key={editing.id}
+            companies={companies}
             initialValues={editing}
             submitLabel="Save changes"
             submitting={saving}

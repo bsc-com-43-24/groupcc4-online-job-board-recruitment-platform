@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -20,7 +20,6 @@ import {
   Typography,
   Upload,
 } from 'antd';
-import type { UploadProps } from 'antd';
 import {
   Briefcase,
   Building2,
@@ -40,41 +39,11 @@ import { ApplicationStatusTag } from '@/components/StatusTag';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useJob, useJobApplications } from '@/hooks/useStore';
 import { formatDate, formatSalary, deadlineLabel, isDeadlinePassed } from '@/lib/format';
-import { applyToJob } from '@/mock/store';
+import { applyToJob, loadJob } from '@/mock/store';
+import { apiErrorMessage, validateUpload } from '@/services/api';
 import { loginHref, useSession } from '@/services/session';
 
 const { Title, Text, Paragraph } = Typography;
-
-const MAX_CV_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = /\.(pdf|docx?)$/i;
-
-const uploadProps = (onReject: (reason: string) => void): UploadProps => ({
-  name: 'cv',
-  maxCount: 1,
-  accept: '.pdf,.doc,.docx',
-  multiple: false,
-  beforeUpload: (file) => {
-    const extensionAllowed = ACCEPTED_EXTENSIONS.test(file.name);
-    const typeAllowed =
-      !file.type ||
-      file.type === 'application/pdf' ||
-      file.type === 'application/msword' ||
-      file.type ===
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-    if (!extensionAllowed || !typeAllowed) {
-      onReject('Attach a PDF or Word document.');
-      return Upload.LIST_IGNORE;
-    }
-
-    if (file.size > MAX_CV_BYTES) {
-      onReject('Your CV must be 5 MB or smaller.');
-      return Upload.LIST_IGNORE;
-    }
-
-    return false;
-  },
-});
 
 function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -151,12 +120,29 @@ export default function JobDetailPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [cvName, setCvName] = useState<string | null>(null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetter, setCoverLetter] = useState('');
   const [uploadKey, setUploadKey] = useState(0);
+  const [loadingJob, setLoadingJob] = useState(false);
+
+  useEffect(() => {
+    if (!params?.id || job) {
+      return;
+    }
+    void (async () => {
+      setLoadingJob(true);
+      try {
+        await loadJob(params.id);
+      } catch {
+        return;
+      } finally {
+        setLoadingJob(false);
+      }
+    })();
+  }, [params?.id, job]);
 
   if (!job) {
-    if (!hydrated) {
+    if (!hydrated || loadingJob) {
       return (
         <PageContainer maxWidth={1100}>
           <PageSkeleton rows={8} />
@@ -170,7 +156,7 @@ export default function JobDetailPage() {
     job.status !== 'Active' || isDeadlinePassed(job.deadline);
 
   const resetModal = () => {
-    setCvName(null);
+    setCvFile(null);
     setCoverLetter('');
     setUploadKey((key) => key + 1);
   };
@@ -206,22 +192,20 @@ export default function JobDetailPage() {
       return;
     }
 
-    if (!cvName) {
-      message.error('Attach your CV before submitting.');
+    if (!cvFile) {
+      message.error('Attach your PDF CV before submitting.');
       return;
     }
 
     setSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const application = applyToJob({
+      const application = await applyToJob({
         job,
         seekerId: session.userId,
         seekerName: session.name,
         seekerEmail: session.email,
-        coverLetter: coverLetter.trim() || undefined,
-        cvName,
+        coverLetter: coverLetter.trim(),
+        cvFile,
       });
 
       if (!application) {
@@ -232,8 +216,8 @@ export default function JobDetailPage() {
       setModalOpen(false);
       message.success('Application submitted. Track its progress under My applications.');
       resetModal();
-    } catch {
-      message.error('Could not submit your application. Please try again.');
+    } catch (submitError) {
+      message.error(apiErrorMessage(submitError));
     } finally {
       setSubmitting(false);
     }
@@ -440,7 +424,7 @@ export default function JobDetailPage() {
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         okText="Submit application"
-        okButtonProps={{ loading: submitting, disabled: !cvName }}
+        okButtonProps={{ loading: submitting, disabled: !cvFile }}
         onOk={handleSubmit}
         destroyOnHidden
       >
@@ -453,17 +437,26 @@ export default function JobDetailPage() {
             <Text strong>Upload your CV</Text>
             <Upload.Dragger
               key={uploadKey}
-              {...uploadProps((reason) => message.error(reason))}
-              onChange={({ fileList }) => {
-                setCvName(fileList[0]?.name ?? null);
+              name="cv"
+              maxCount={1}
+              accept=".pdf,application/pdf"
+              beforeUpload={(file) => {
+                const uploadError = validateUpload(file);
+                if (uploadError) {
+                  message.error(uploadError);
+                  return Upload.LIST_IGNORE;
+                }
+                setCvFile(file);
+                return false;
               }}
+              onRemove={() => setCvFile(null)}
               style={{ marginTop: 8 }}
             >
               <p style={{ margin: 0 }}>
                 <UploadCloud size={28} aria-hidden color="#2563eb" />
               </p>
               <p className="ant-upload-text">Click or drag your CV here</p>
-              <p className="ant-upload-hint">PDF or Word document, up to 5 MB.</p>
+              <p className="ant-upload-hint">PDF only, up to 5 MB.</p>
             </Upload.Dragger>
           </div>
 
@@ -480,9 +473,9 @@ export default function JobDetailPage() {
             />
           </div>
 
-          {cvName ? (
+          {cvFile ? (
             <Text type="secondary">
-              <Download size={14} aria-hidden /> Attached: {cvName}
+              <Download size={14} aria-hidden /> Attached: {cvFile.name}
             </Text>
           ) : (
             <Text type="secondary">A CV is required before you can submit.</Text>

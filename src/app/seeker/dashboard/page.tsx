@@ -81,10 +81,9 @@ export default function SeekerDashboardPage() {
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {
       Total: applications.length,
-      'Under Review': 0,
+      Submitted: 0,
       Shortlisted: 0,
-      Interviewed: 0,
-      Hired: 0,
+      Rejected: 0,
     };
 
     applications.forEach((application) => {
@@ -159,10 +158,9 @@ export default function SeekerDashboardPage() {
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         {[
           { label: 'Total applications', value: statusCounts.Total },
-          { label: 'Under review', value: statusCounts['Under Review'] },
+          { label: 'Submitted', value: statusCounts.Submitted },
           { label: 'Shortlisted', value: statusCounts.Shortlisted },
-          { label: 'Interviews', value: statusCounts.Interviewed },
-          { label: 'Hired', value: statusCounts.Hired },
+          { label: 'Rejected', value: statusCounts.Rejected },
         ].map((stat) => (
           <Col xs={12} md={8} lg={4} key={stat.label}>
             <Card>

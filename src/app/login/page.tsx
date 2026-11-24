@@ -11,7 +11,6 @@ import {
   Divider,
   Form,
   Input,
-  Space,
   Typography,
 } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';

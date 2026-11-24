@@ -12,21 +12,10 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
-import { seedState } from '@/mock/seed';
+import { useMockState } from '@/hooks/useStore';
+import { useSession } from '@/services/session';
 import { deadlineLabel, formatSalary } from '@/lib/format';
 import styles from './home.module.css';
-
-const activeJobs = seedState.jobs.filter((job) => job.status === 'Active');
-
-const featuredJobs = [...activeJobs]
-  .sort((a, b) => b.postedAt.localeCompare(a.postedAt))
-  .slice(0, 3);
-
-const employerCount = new Set(
-  seedState.accounts
-    .filter((account) => account.role === 'EMPLOYER')
-    .map((account) => account.companyName),
-).size;
 
 const seekerSteps = [
   {
@@ -39,11 +28,19 @@ const seekerSteps = [
   },
   {
     title: 'Track every application',
-    body: 'Follow each application from submitted to shortlisted, interviewed and hired — no more guessing.',
+    body: 'Follow each application from submitted to shortlisted or rejected — no more guessing.',
   },
 ];
 
 export default function HomePage() {
+  const session = useSession();
+  const state = useMockState();
+  const activeJobs = state.jobs.filter((job) => job.status === 'Active');
+  const featuredJobs = [...activeJobs]
+    .sort((a, b) => b.postedAt.localeCompare(a.postedAt))
+    .slice(0, 3);
+  const employerCount = session?.role === 'EMPLOYER' ? state.companies?.length ?? 0 : null;
+
   return (
     <>
       <section className={styles.hero} aria-labelledby="hero-title">
@@ -114,8 +111,8 @@ export default function HomePage() {
               <div className={styles.statLabel}>Live vacancies</div>
             </div>
             <div className={styles.stat}>
-              <div className={styles.statValue}>{employerCount}</div>
-              <div className={styles.statLabel}>Hiring teams</div>
+              <div className={styles.statValue}>{employerCount ?? '—'}</div>
+              <div className={styles.statLabel}>Your companies</div>
             </div>
             <div className={styles.stat}>
               <div className={styles.statValue}>1 place</div>
@@ -141,6 +138,14 @@ export default function HomePage() {
             </Button>
           </Link>
         </div>
+
+        {!session ? (
+          <p style={{ color: 'var(--app-muted)' }}>
+            Sign in to browse live vacancies from the recruitment API.
+          </p>
+        ) : !featuredJobs.length ? (
+          <p style={{ color: 'var(--app-muted)' }}>No live vacancies are available right now.</p>
+        ) : null}
 
         <Row gutter={[16, 16]}>
           {featuredJobs.map((job) => (
@@ -220,8 +225,8 @@ export default function HomePage() {
               Post a vacancy and review every applicant in one place
             </h2>
             <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
-              Publish a role in minutes, then shortlist, interview and hire with a clear
-              view of who applied and where they are in the process.
+              Publish a role in minutes, then review applications and shortlist candidates
+              with a clear view of who applied and where they are in the process.
             </p>
           </div>
           <Space wrap size={12}>

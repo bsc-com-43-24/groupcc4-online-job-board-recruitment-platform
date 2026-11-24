@@ -22,41 +22,32 @@ import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
 import EmptyState from '@/components/ui/EmptyState';
 import PageSkeleton from '@/components/ui/PageSkeleton';
-import InterviewDetails from '@/components/InterviewDetails';
 import { ApplicationStatusTag } from '@/components/StatusTag';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useJobs, useSeekerApplications } from '@/hooks/useStore';
 import { formatDate } from '@/lib/format';
 import { useSession } from '@/services/session';
+import { apiErrorMessage } from '@/services/api';
 import { withdrawApplication } from '@/mock/store';
 import type { Application, ApplicationStatus } from '@/mock/types';
 
 const { Title, Text, Paragraph } = Typography;
 
-const LIFECYCLE: ApplicationStatus[] = [
-  'Submitted',
-  'Under Review',
-  'Shortlisted',
-  'Interviewed',
-  'Hired',
-];
+const LIFECYCLE: ApplicationStatus[] = ['Submitted', 'Shortlisted'];
 
 function ApplicationTimeline({ application }: { application: Application }) {
-  if (application.status === 'Rejected' || application.status === 'Withdrawn') {
-    const rejected = application.status === 'Rejected';
+  if (application.status === 'Rejected') {
     return (
       <Steps
         size="small"
         direction="vertical"
         current={1}
-        status={rejected ? 'error' : 'wait'}
+        status="error"
         items={[
           { title: 'Application submitted', description: formatDate(application.appliedAt) },
           {
-            title: rejected ? 'Not selected' : 'Application withdrawn',
-            description: rejected
-              ? 'The employer moved forward with other candidates.'
-              : 'You withdrew this application.',
+            title: 'Not selected',
+            description: 'The employer moved forward with other candidates.',
           },
         ]}
       />
@@ -70,9 +61,9 @@ function ApplicationTimeline({ application }: { application: Application }) {
       size="small"
       direction="vertical"
       current={current}
-      status={application.status === 'Hired' ? 'finish' : 'process'}
+      status={application.status === 'Shortlisted' ? 'finish' : 'process'}
       items={LIFECYCLE.map((step, index) => ({
-        title: step,
+        title: step === 'Submitted' ? 'Application submitted' : 'Shortlisted',
         description:
           index === 0
             ? formatDate(application.appliedAt)
@@ -142,24 +133,6 @@ export default function SeekerApplicationsPage() {
       render: (status: ApplicationStatus) => <ApplicationStatusTag status={status} />,
     },
     {
-      title: 'Interview',
-      key: 'interview',
-      width: 190,
-      render: (_, record) =>
-        record.interview ? (
-          <Space direction="vertical" size={0}>
-            <Tag color={record.interview.status === 'Scheduled' ? 'blue' : 'default'}>
-              {record.interview.status}
-            </Tag>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {formatDate(record.interview.date)} · {record.interview.time}
-            </Text>
-          </Space>
-        ) : (
-          <Text type="secondary">—</Text>
-        ),
-    },
-    {
       title: '',
       key: 'actions',
       width: 140,
@@ -181,19 +154,20 @@ export default function SeekerApplicationsPage() {
 
   const selectedJob = selected ? jobsById.get(selected.jobId) : undefined;
 
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     if (!selected) {
       return;
     }
     try {
-      if (!withdrawApplication(selected.id)) {
-        message.error('Could not withdraw this application. Please try again.');
+      const withdrawn = await withdrawApplication(selected.id);
+      if (!withdrawn) {
+        message.error('This application can no longer be withdrawn.');
         return;
       }
       message.success('Application withdrawn.');
       setSelected(null);
-    } catch {
-      message.error('Could not withdraw this application. Please try again.');
+    } catch (withdrawError) {
+      message.error(apiErrorMessage(withdrawError));
     }
   };
 
@@ -303,15 +277,6 @@ export default function SeekerApplicationsPage() {
               </div>
             </div>
 
-            {selected.interview ? (
-              <div>
-                <Text strong>Interview details</Text>
-                <div style={{ marginTop: 10 }}>
-                  <InterviewDetails interview={selected.interview} />
-                </div>
-              </div>
-            ) : null}
-
             {selected.coverLetter ? (
               <div>
                 <Text strong>Your cover letter</Text>
@@ -326,7 +291,7 @@ export default function SeekerApplicationsPage() {
                 View the vacancy
               </Button>
             </Link>
-            {!['Hired', 'Rejected', 'Withdrawn'].includes(selected.status) ? (
+            {selected.status !== 'Rejected' ? (
               <Popconfirm
                 title="Withdraw this application?"
                 description="The employer will be notified that you withdrew."

@@ -1,25 +1,37 @@
 'use client';
 
-import { useMemo, useSyncExternalStore } from 'react';
-import { mockStore } from '@/mock/store';
-import { seedState } from '@/mock/seed';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import {
+  EMPTY_STATE,
+  loadAppData,
+  mockStore,
+} from '@/mock/store';
+import { useSession } from '@/services/session';
 import type {
+  AdminUserView,
   Application,
+  CompanyView,
+  DocumentView,
+  EmployerRequestView,
   Job,
   MockState,
   NotificationItem,
   SeekerProfile,
+  ShortlistView,
 } from '@/mock/types';
 
-/**
- * Subscribes to the mock store.
- *
- * The server snapshot is the seed state so the server-rendered HTML and the
- * first client render agree; React then re-renders with any persisted demo
- * data as soon as hydration finishes.
- */
 export function useMockState(): MockState {
-  return useSyncExternalStore(mockStore.subscribe, mockStore.get, () => seedState);
+  const session = useSession();
+  const state = useSyncExternalStore(mockStore.subscribe, mockStore.get, () => EMPTY_STATE);
+  const sessionKey = session
+    ? `${session.userId}:${session.role}:${session.email}:${session.name}`
+    : 'anonymous';
+
+  useEffect(() => {
+    void loadAppData(session);
+  }, [session, sessionKey]);
+
+  return state;
 }
 
 export function useJobs(): Job[] {
@@ -110,4 +122,24 @@ export function useProfile(userId: string | undefined): SeekerProfile | undefine
     () => (userId ? profiles.find((profile) => profile.userId === userId) : undefined),
     [profiles, userId],
   );
+}
+
+export function useCompanies(): CompanyView[] {
+  return useMockState().companies ?? [];
+}
+
+export function useEmployerRequests(): EmployerRequestView[] {
+  return useMockState().employerRequests ?? [];
+}
+
+export function useAdminUsers(): AdminUserView[] {
+  return useMockState().adminUsers ?? [];
+}
+
+export function useShortlistedCandidates(): ShortlistView[] {
+  return useMockState().shortlistedCandidates ?? [];
+}
+
+export function useDocuments(): DocumentView[] {
+  return useMockState().documents ?? [];
 }

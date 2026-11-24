@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
               resetUrl ? (
                 <Space direction="vertical" size={4} style={{ marginTop: 8 }}>
                   <Text>
-                    Email delivery is not configured in this browser demo. Use this demo reset link:
+                    The API returned a reset token for testing. Use it to continue:
                   </Text>
                   <Link href={resetUrl}>Reset your password</Link>
                 </Space>
