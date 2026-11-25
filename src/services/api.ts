@@ -1,17 +1,10 @@
 import { clearSession } from '@/services/session';
 import type { Role } from '@/mock/types';
 
-const DEFAULT_API_URL = 'https://api.online-job.mikhy.me';
-const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '');
-const resolvedUrl = configuredUrl || DEFAULT_API_URL;
-const BASE_URL = (
-  resolvedUrl.startsWith('http://api.online-job.mikhy.me')
-    ? resolvedUrl.replace(/^http:/, 'https:')
-    : resolvedUrl
-).replace(/\/+$/, '');
+const BASE_URL = '';
 
 export const apiConfigured = true;
-export const apiBaseUrl = BASE_URL;
+export const apiBaseUrl = '/api';
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export interface ApiFieldError {
@@ -26,6 +19,7 @@ export class ApiRequestError extends Error {
     readonly status?: number,
     readonly code?: string,
     readonly fieldErrors: ApiFieldError[] = [],
+    readonly retryAfter?: number,
   ) {
     super(message);
     this.name = 'ApiRequestError';
@@ -254,8 +248,28 @@ function errorPayloadFromText(text: string): ApiErrorPayload {
   }
 }
 
+function retryAfterSeconds(header: string | null): number | undefined {
+  if (!header) {
+    return undefined;
+  }
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, Math.ceil(seconds));
+  }
+
+  const timestamp = Date.parse(header);
+  if (Number.isNaN(timestamp)) {
+    return undefined;
+  }
+
+  return Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
+}
+
 function buildUrl(path: string, query?: RequestOptions['query']): string {
-  const url = new URL(`${BASE_URL}${path}`);
+  const origin =
+    typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+  const url = new URL(`${BASE_URL}${path}`, origin);
   if (query) {
     Object.entries(query).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -325,6 +339,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const payload = errorPayloadFromText(text);
 
   if (!response.ok) {
+    const retryAfter = retryAfterSeconds(response.headers.get('retry-after'));
+
     if (response.status === 401 && redirectOnUnauthorized && typeof window !== 'undefined') {
       const currentPath = `${window.location.pathname}${window.location.search}`;
       clearSession();
@@ -342,17 +358,26 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         response.status,
         payload.code,
         normalizeFieldErrors(payload),
+        retryAfter,
       );
     }
 
+    const message =
+      response.status === 429
+        ? retryAfter
+          ? `Too many attempts. Try again in ${retryAfter} seconds.`
+          : 'Too many attempts. Please try again later.'
+        : payload.message ??
+          payload.error ??
+          'The request could not be completed. Please try again.';
+
     throw new ApiRequestError(
-      payload.message ??
-        payload.error ??
-        'The request could not be completed. Please try again.',
+      message,
       'http',
       response.status,
       payload.code,
       normalizeFieldErrors(payload),
+      retryAfter,
     );
   }
 

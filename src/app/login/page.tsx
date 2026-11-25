@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -37,6 +37,19 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAvailable, setRetryAvailable] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const coolingDown = cooldown > 0;
+
+  useEffect(() => {
+    if (!coolingDown) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setCooldown((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [coolingDown]);
 
   const handleFinish = async (values: LoginValues) => {
     setLoading(true);
@@ -52,6 +65,9 @@ function LoginContent() {
       if (!result.success || !result.user) {
         setError(result.message);
         setRetryAvailable(Boolean(result.networkError));
+        if (result.retryAfter) {
+          setCooldown(result.retryAfter);
+        }
         return;
       }
 
@@ -139,7 +155,7 @@ function LoginContent() {
           layout="vertical"
           onFinish={handleFinish}
           requiredMark={false}
-          disabled={loading}
+          disabled={loading || coolingDown}
         >
           <Form.Item
             name="email"
@@ -180,11 +196,12 @@ function LoginContent() {
             htmlType="submit"
             size="large"
             block
-            loading={loading}
-            style={{ marginTop: 4 }}
-          >
-            Log in
-          </Button>
+          loading={loading}
+          disabled={coolingDown}
+          style={{ marginTop: 4 }}
+        >
+          {coolingDown ? `Wait ${cooldown}s` : 'Log in'}
+        </Button>
         </Form>
 
         <Divider style={{ margin: '20px 0' }} />

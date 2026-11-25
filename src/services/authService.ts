@@ -3,11 +3,9 @@ import {
   ApiRequestError,
   apiErrorMessage,
   authApi,
-  employerApi,
-  profileApi,
   type UserResponse,
 } from './api';
-import { clearSession, persistSession, updateSessionName } from './session';
+import { clearSession, persistSession } from './session';
 
 export interface AuthUser {
   id: string;
@@ -22,6 +20,7 @@ export interface AuthResponse {
   token?: string;
   user?: AuthUser;
   networkError?: boolean;
+  retryAfter?: number;
 }
 
 export interface LoginInput {
@@ -61,28 +60,6 @@ function toAuthUser(user: UserResponse, name: string): AuthUser {
   };
 }
 
-async function resolveDisplayName(user: UserResponse): Promise<string> {
-  if (user.role === 'JOB_SEEKER') {
-    try {
-      const profile = await profileApi.get();
-      return profile.displayName || profile.fullName || emailPrefix(user.email);
-    } catch {
-      return emailPrefix(user.email);
-    }
-  }
-
-  if (user.role === 'EMPLOYER') {
-    try {
-      const companies = await employerApi.companies();
-      return companies[0]?.name || emailPrefix(user.email);
-    } catch {
-      return emailPrefix(user.email);
-    }
-  }
-
-  return emailPrefix(user.email);
-}
-
 async function startSession(token: string): Promise<AuthResponse> {
   const user = await authApi.currentUser(token);
 
@@ -94,8 +71,7 @@ async function startSession(token: string): Promise<AuthResponse> {
     };
   }
 
-  const provisionalName = emailPrefix(user.email);
-  const authUser = toAuthUser(user, provisionalName);
+  const authUser = toAuthUser(user, emailPrefix(user.email));
 
   persistSession(
     {
@@ -107,16 +83,11 @@ async function startSession(token: string): Promise<AuthResponse> {
     token,
   );
 
-  const name = await resolveDisplayName(user);
-  if (name && name !== provisionalName) {
-    updateSessionName(name);
-  }
-
   return {
     success: true,
     message: 'Signed in.',
     token,
-    user: { ...authUser, name },
+    user: authUser,
   };
 }
 
@@ -126,6 +97,7 @@ function failure(error: unknown, fallback: string): AuthResponse {
     success: false,
     message: apiErrorMessage(error) || fallback,
     networkError,
+    retryAfter: error instanceof ApiRequestError ? error.retryAfter : undefined,
   };
 }
 
