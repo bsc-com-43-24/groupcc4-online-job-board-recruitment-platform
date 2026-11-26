@@ -225,6 +225,13 @@ export default function SiteHeader() {
                 label: 'My profile',
                 icon: <UserRound size={ICON_SIZE} aria-hidden />,
               },
+        session.role === 'JOB_SEEKER'
+          ? {
+                key: '/employer/verification',
+                label: 'Request employer account',
+                icon: <BriefcaseBusiness size={ICON_SIZE} aria-hidden />,
+              }
+          : null,
         { type: 'divider' },
         {
           key: 'logout',
@@ -399,6 +406,11 @@ export default function SiteHeader() {
         ) : null}
         {themeToggle}
         {authActions}
+        {!session ? (
+          <Link href="/register" className="site-register-mobile">
+            <Button type="primary">Register</Button>
+          </Link>
+        ) : null}
       </Space>
 
       <Drawer

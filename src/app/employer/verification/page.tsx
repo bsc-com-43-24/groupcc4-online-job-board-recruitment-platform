@@ -12,11 +12,9 @@ import {
   Space,
   Tag,
   Typography,
-  Upload,
 } from 'antd';
-import { CheckCircleOutlined, UploadOutlined } from '@ant-design/icons';
-import type { UploadFile } from 'antd';
-import { apiErrorMessage, employerApi, validateUpload } from '@/services/api';
+import { CheckCircleOutlined } from '@ant-design/icons';
+import { apiErrorMessage, employerApi } from '@/services/api';
 import { useCompanies, useEmployerRequests } from '@/hooks/useStore';
 import { refreshAppData } from '@/mock/store';
 import { useSession } from '@/services/session';
@@ -27,11 +25,11 @@ const { Title, Paragraph, Text } = Typography;
 interface VerificationValues {
   companyName: string;
   businessDescription: string;
+  contactEmail: string;
   contactPhone: string;
   location: string;
-  registrationNumber: string;
   vatNumber: string;
-  document: UploadFile[];
+  registrationNumber: string;
 }
 
 interface CompanyValues {
@@ -70,27 +68,23 @@ export default function EmployerVerificationPage() {
   }
 
   const latestRequest = requests[0];
-  const canCreateCompany = latestRequest?.status === 'APPROVED' && companies.length === 0;
+  const canCreateCompany =
+    session.role === 'EMPLOYER' &&
+    latestRequest?.status === 'APPROVED' &&
+    companies.length === 0;
 
   const handleVerification = async (values: VerificationValues) => {
-    const file = values.document?.[0]?.originFileObj as File | undefined;
-    if (!file) {
-      setError('Upload a company registration document.');
-      return;
-    }
-
     setVerificationLoading(true);
     setError(null);
     try {
       await employerApi.submitVerification({
         companyName: values.companyName,
         businessDescription: values.businessDescription,
-        contactEmail: session.email,
+        contactEmail: values.contactEmail,
         contactPhone: values.contactPhone,
         location: values.location,
-        registrationNumber: values.registrationNumber,
         vatNumber: values.vatNumber,
-        document: file,
+        registrationNumber: values.registrationNumber,
       });
       message.success('Verification request submitted.');
       verificationForm.resetFields();
@@ -119,9 +113,13 @@ export default function EmployerVerificationPage() {
 
   return (
     <div style={{ padding: '40px 16px', maxWidth: 900, margin: '0 auto' }}>
-      <Title level={2}>Employer verification</Title>
+      <Title level={2}>
+        {session.role === 'JOB_SEEKER' ? 'Request employer account' : 'Employer verification'}
+      </Title>
       <Paragraph type="secondary">
-        Employer accounts are approved by an administrator after reviewing your company documents.
+        {session.role === 'JOB_SEEKER'
+          ? 'Submit your company details for administrator review.'
+          : 'Employer accounts are approved by an administrator after reviewing your company information.'}
       </Paragraph>
 
       {error ? (
@@ -213,81 +211,84 @@ export default function EmployerVerificationPage() {
           >
             <Form.Item
               name="companyName"
-              label="Company name"
+              label="Company Name"
               rules={[{ required: true, whitespace: true, message: 'Enter a company name' }]}
             >
-              <Input />
+              <Input id="companyName" placeholder="Acme Technologies" />
             </Form.Item>
             <Form.Item
               name="businessDescription"
-              label="Business description"
+              label="Business Description"
               rules={[{ required: true, whitespace: true, message: 'Describe your business' }]}
             >
-              <Input.TextArea rows={3} />
+              <Input.TextArea id="businessDescription" rows={3} />
+            </Form.Item>
+            <Form.Item
+              name="contactEmail"
+              label="Contact Email"
+              rules={[
+                { required: true, whitespace: true, message: 'Enter a contact email' },
+                { type: 'email', message: 'Enter a valid email address' },
+              ]}
+            >
+              <Input
+                id="contactEmail"
+                type="email"
+                placeholder="user@example.com"
+                autoComplete="email"
+              />
             </Form.Item>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Form.Item
                 name="contactPhone"
-                label="Contact phone"
+                label="Contact Phone"
                 rules={[
                   { required: true, message: 'Enter a phone number' },
-                  { pattern: /^[+0-9() .-]{7,50}$/, message: 'Enter a valid phone number' },
+                  {
+                    pattern: /^(?=.*\d)[+0-9 -]{7,50}$/,
+                    message: 'Use 7–50 characters with digits, +, spaces, or dashes.',
+                  },
                 ]}
               >
-                <Input />
+                <Input
+                  id="contactPhone"
+                  placeholder="8155 061089 - 514"
+                  autoComplete="tel"
+                />
               </Form.Item>
               <Form.Item
                 name="location"
-                label="Location"
+                label="Location / City"
                 rules={[{ required: true, whitespace: true, message: 'Enter a location' }]}
               >
-                <Input />
+                <Input id="location" placeholder="Blantyre" />
               </Form.Item>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Form.Item
-                name="registrationNumber"
-                label="Registration number"
-                rules={[{ required: true, whitespace: true, message: 'Enter registration number' }]}
+                name="vatNumber"
+                label="VAT Number (optional)"
               >
-                <Input />
+                <Input id="vatNumber" />
               </Form.Item>
               <Form.Item
-                name="vatNumber"
-                label="VAT number"
-                rules={[{ required: true, whitespace: true, message: 'Enter VAT number' }]}
+                name="registrationNumber"
+                label="Business Registration Number (optional)"
               >
-                <Input />
+                <Input id="registrationNumber" />
               </Form.Item>
             </div>
-            <Form.Item
-              name="document"
-              label="Company registration proof (PDF, max 5 MB)"
-              valuePropName="fileList"
-              rules={[
-                {
-                  validator: (_, value: UploadFile[] | undefined) => {
-                    const file = value?.[0]?.originFileObj as File | undefined;
-                    if (!file) {
-                      return Promise.reject(new Error('Upload a registration document'));
-                    }
-                    const uploadError = validateUpload(file);
-                    return uploadError
-                      ? Promise.reject(new Error(uploadError))
-                      : Promise.resolve();
-                  },
-                },
-              ]}
-            >
-              <Upload beforeUpload={() => false} maxCount={1} accept=".pdf,application/pdf">
-                <Button icon={<UploadOutlined aria-hidden />}>Choose PDF</Button>
-              </Upload>
-            </Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" loading={verificationLoading}>
                 Submit request
               </Button>
-              <Link href="/employer/dashboard">
+              <Link
+                href={
+                  session.role === 'EMPLOYER'
+                    ? '/employer/dashboard'
+                    : '/seeker/dashboard'
+                }
+              >
                 <Button icon={<CheckCircleOutlined aria-hidden />}>Back to dashboard</Button>
               </Link>
             </Space>

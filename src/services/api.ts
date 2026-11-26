@@ -239,7 +239,6 @@ export interface EmployerUpgradeInput {
   location: string;
   vatNumber: string;
   registrationNumber: string;
-  document: File;
 }
 
 export interface ShortlistCandidateResponse {
@@ -553,23 +552,17 @@ export const authApi = {
 
 export const employerApi = {
   submitVerification(input: EmployerUpgradeInput): Promise<EmployerUpgradeResponse> {
-    const application = new Blob(
-      [
-        JSON.stringify({
-          companyName: input.companyName,
-          businessDescription: input.businessDescription,
-          contactEmail: input.contactEmail,
-          contactPhone: input.contactPhone,
-          location: input.location,
-          vatNumber: input.vatNumber,
-          registrationNumber: input.registrationNumber,
-        }),
-      ],
-      { type: 'application/json' },
-    );
     return request('/api/employer-requests', {
       method: 'POST',
-      body: multipart({ application, document: input.document }),
+      body: {
+        companyName: input.companyName,
+        businessDescription: input.businessDescription,
+        contactEmail: input.contactEmail,
+        contactPhone: input.contactPhone,
+        location: input.location,
+        vatNumber: input.vatNumber,
+        registrationNumber: input.registrationNumber,
+      },
     });
   },
   myRequests(): Promise<EmployerUpgradeResponse[]> {

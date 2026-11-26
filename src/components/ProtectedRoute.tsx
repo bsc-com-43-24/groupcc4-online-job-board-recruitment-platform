@@ -16,10 +16,7 @@ import UnauthorizedResult from '@/components/UnauthorizedResult';
 
 type ProtectedRouteProps = {
   children: ReactNode;
-} & (
-  | { role: Role; guestOnly?: false }
-  | { role?: never; guestOnly: true }
-);
+} & ({ role: Role | Role[]; guestOnly?: false } | { role?: never; guestOnly: true });
 
 export default function ProtectedRoute({
   children,
@@ -81,7 +78,8 @@ export default function ProtectedRoute({
     );
   }
 
-  if (session.role !== role) {
+  const allowedRoles = Array.isArray(role) ? role : role ? [role] : [];
+  if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
     return <UnauthorizedResult />;
   }
 

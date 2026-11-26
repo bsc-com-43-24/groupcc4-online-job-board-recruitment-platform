@@ -522,7 +522,7 @@ async function loadAppDataOnce(session: Session | null): Promise<void> {
     session.role === 'EMPLOYER' ? employerApi.companies() : Promise.resolve([] as CompanyResponse[]);
 
   const requestTask =
-    session.role === 'EMPLOYER'
+    session.role === 'EMPLOYER' || session.role === 'JOB_SEEKER'
       ? employerApi.myRequests()
       : session.role === 'ADMIN'
         ? adminApi.employerRequests()
