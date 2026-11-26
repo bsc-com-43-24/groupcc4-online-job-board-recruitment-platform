@@ -12,6 +12,16 @@ export interface ApiFieldError {
   message?: string;
 }
 
+export interface ApplicationErrorResponse {
+  timestamp: string;
+  status: number;
+  code: string;
+  message: string;
+  path: string;
+  correlationId: string;
+  fieldErrors: { field: string; message: string }[];
+}
+
 export class ApiRequestError extends Error {
   constructor(
     message: string,
@@ -20,6 +30,7 @@ export class ApiRequestError extends Error {
     readonly code?: string,
     readonly fieldErrors: ApiFieldError[] = [],
     readonly retryAfter?: number,
+    readonly response?: ApplicationErrorResponse,
   ) {
     super(message);
     this.name = 'ApiRequestError';
@@ -27,9 +38,13 @@ export class ApiRequestError extends Error {
 }
 
 interface ApiErrorPayload {
+  timestamp?: string;
+  status?: number;
   message?: string;
   error?: string;
   code?: string;
+  path?: string;
+  correlationId?: string;
   errors?: ApiFieldError[];
   fieldErrors?: Record<string, string> | ApiFieldError[];
 }
@@ -129,6 +144,25 @@ export interface JobSummaryResponse {
   status: string;
 }
 
+export interface ApplicationProfileResponse {
+  displayName: string;
+  fullName: string;
+  dateOfBirth: string;
+  phone: string;
+  location: string;
+  biography: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApplicationCvResponse {
+  id: string;
+  originalFilename: string;
+  contentType: string;
+  byteSize: number;
+  createdAt: string;
+}
+
 export interface ProfileResponse {
   displayName: string;
   fullName?: string;
@@ -163,16 +197,16 @@ export interface ApplicationResponse {
   id: string;
   jobId: string;
   applicantId: string;
-  applicantDisplayName?: string;
-  applicantProfile?: ProfileResponse;
-  cv?: DocumentResponse;
+  applicantDisplayName: string;
+  applicantProfile: ApplicationProfileResponse;
+  cv: ApplicationCvResponse;
   status: ApplicationStatusResponse;
   submittedAt: string;
-  updatedAt?: string;
-  shortlistedAt?: string;
-  rejectedAt?: string;
-  job?: JobSummaryResponse;
-  coverLetter?: string;
+  updatedAt: string;
+  shortlistedAt: string | null;
+  rejectedAt: string | null;
+  job: JobSummaryResponse;
+  coverLetter: string;
 }
 
 export interface EmployerUpgradeResponse {
@@ -246,6 +280,38 @@ function errorPayloadFromText(text: string): ApiErrorPayload {
   } catch {
     return { message: text };
   }
+}
+
+export function parseApiErrorResponse(
+  text: string,
+  responseStatus: number,
+): ApplicationErrorResponse | null {
+  const payload = errorPayloadFromText(text);
+  if (
+    typeof payload.timestamp !== 'string' ||
+    typeof payload.code !== 'string' ||
+    typeof payload.message !== 'string' ||
+    typeof payload.path !== 'string' ||
+    typeof payload.correlationId !== 'string'
+  ) {
+    return null;
+  }
+
+  const fieldErrors = Array.isArray(payload.fieldErrors)
+    ? payload.fieldErrors.filter(
+        (item): item is { field: string; message: string } =>
+          typeof item?.field === 'string' && typeof item.message === 'string',
+      )
+    : [];
+  return {
+    timestamp: payload.timestamp,
+    status: typeof payload.status === 'number' ? payload.status : responseStatus,
+    code: payload.code,
+    message: payload.message,
+    path: payload.path,
+    correlationId: payload.correlationId,
+    fieldErrors,
+  };
 }
 
 function retryAfterSeconds(header: string | null): number | undefined {
@@ -340,6 +406,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok) {
     const retryAfter = retryAfterSeconds(response.headers.get('retry-after'));
+    const apiError = parseApiErrorResponse(text, response.status);
 
     if (response.status === 401 && redirectOnUnauthorized && typeof window !== 'undefined') {
       const currentPath = `${window.location.pathname}${window.location.search}`;
@@ -356,9 +423,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         'The server is temporarily unavailable. Please try again.',
         'http',
         response.status,
-        payload.code,
-        normalizeFieldErrors(payload),
+        apiError?.code ?? payload.code,
+        apiError?.fieldErrors ?? normalizeFieldErrors(payload),
         retryAfter,
+        apiError ?? undefined,
       );
     }
 
@@ -367,7 +435,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         ? retryAfter
           ? `Too many attempts. Try again in ${retryAfter} seconds.`
           : 'Too many attempts. Please try again later.'
-        : payload.message ??
+        : apiError?.message ??
+          payload.message ??
           payload.error ??
           'The request could not be completed. Please try again.';
 
@@ -375,9 +444,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       message,
       'http',
       response.status,
-      payload.code,
-      normalizeFieldErrors(payload),
+      apiError?.code ?? payload.code,
+      apiError?.fieldErrors ?? normalizeFieldErrors(payload),
       retryAfter,
+      apiError ?? undefined,
     );
   }
 
