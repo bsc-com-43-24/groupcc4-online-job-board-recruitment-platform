@@ -145,7 +145,7 @@ export default function EmployerJobDetailPage() {
       </Space>
 
       {state.error ? (
-        <Alert type="error" showIcon message={state.error} style={{ marginBottom: 16 }} />
+        <Alert type="error" showIcon title={state.error} style={{ marginBottom: 16 }} />
       ) : null}
 
       <Card style={{ marginBottom: 16 }}>
@@ -234,7 +234,7 @@ export default function EmployerJobDetailPage() {
         title="Edit vacancy"
         open={editing}
         onClose={() => setEditing(false)}
-        width={720}
+        size={720}
         destroyOnHidden
       >
         <JobForm

@@ -22,7 +22,7 @@ export default function DeniedAlert() {
       showIcon
       closable
       onClose={() => setDismissed(true)}
-      message="You don't have access to that page"
+      title="You don't have access to that page"
       description="That area belongs to the other account type. You have been taken to your own dashboard."
       style={{ marginBottom: 16 }}
     />

@@ -65,7 +65,7 @@ function ResetPasswordContent() {
           <Alert
             type="error"
             showIcon
-            message="This reset link is invalid or expired."
+            title="This reset link is invalid or expired."
             description={
               <Link href="/forgot-password">Request a new reset link</Link>
             }
@@ -76,7 +76,7 @@ function ResetPasswordContent() {
               <Alert
                 type="error"
                 showIcon
-                message={error}
+                title={error}
                 description={
                   <Link href="/forgot-password">Request a new reset link</Link>
                 }

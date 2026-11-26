@@ -45,7 +45,7 @@ export default function EmployerShortlistPage() {
         Candidates who were shortlisted and retained by the API.
       </Paragraph>
 
-      {state.error ? <Alert type="error" showIcon message={state.error} style={{ marginBottom: 16 }} /> : null}
+      {state.error ? <Alert type="error" showIcon title={state.error} style={{ marginBottom: 16 }} /> : null}
 
       <Card>
         {candidates.length ? (

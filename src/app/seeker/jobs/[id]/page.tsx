@@ -278,9 +278,9 @@ export default function JobDetailPage() {
     <Alert
       type="success"
       showIcon
-      message="Application submitted"
+      title="Application submitted"
       description={
-        <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size={4}>
           <Text>{formatDate(submittedApplication.submittedAt)}</Text>
           <Tag color="processing">PENDING</Tag>
         </Space>
@@ -290,9 +290,9 @@ export default function JobDetailPage() {
     <Alert
       type="success"
       showIcon
-      message="Application submitted"
+      title="Application submitted"
       description={
-        <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size={4}>
           <Text>
             You applied on {formatDate(myApplication.appliedAt)}.
           </Text>
@@ -307,7 +307,7 @@ export default function JobDetailPage() {
     <Alert
       type="warning"
       showIcon
-      message="Applications are closed"
+      title="Applications are closed"
       description={
         job.status === 'Closed'
           ? 'This vacancy has been closed by the employer.'
@@ -400,7 +400,7 @@ export default function JobDetailPage() {
 
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={16}>
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Card>
               <Title level={4} style={{ marginTop: 0 }}>
                 Job overview
@@ -421,7 +421,7 @@ export default function JobDetailPage() {
               <Title level={4} style={{ marginTop: 0 }}>
                 Qualifications and requirements
               </Title>
-              <Space direction="vertical" size={10} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                 {job.qualifications.length ? (
                   job.qualifications.map((item) => (
                     <Space key={item} align="start" size={10}>
@@ -456,7 +456,7 @@ export default function JobDetailPage() {
                 Job summary
               </Title>
 
-              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                 <SummaryRow label="Employer" value={job.company} />
                 <SummaryRow label="Location" value={job.location} />
                 <SummaryRow label="Work mode" value={job.workMode} />
@@ -502,7 +502,7 @@ export default function JobDetailPage() {
             status="success"
             title="Application submitted"
             subTitle={
-              <Space direction="vertical" size={4}>
+              <Space orientation="vertical" size={4}>
                 <Text>{submittedApplication.job.title}</Text>
                 <Text type="secondary">
                   Submitted {formatDate(submittedApplication.submittedAt)}
@@ -520,7 +520,7 @@ export default function JobDetailPage() {
             ]}
           />
         ) : (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <input type="hidden" name="jobId" value={params.id} />
             <Text type="secondary">
               {job.company} will receive your CV and the details on your profile.
@@ -530,7 +530,7 @@ export default function JobDetailPage() {
               <Alert
                 type="error"
                 showIcon
-                message={
+                title={
                   submitError instanceof ApiRequestError
                     ? submitError.response?.message ?? apiErrorMessage(submitError)
                     : apiErrorMessage(submitError)
@@ -552,7 +552,7 @@ export default function JobDetailPage() {
               <Alert
                 type="warning"
                 showIcon
-                message="Complete your profile before applying"
+                title="Complete your profile before applying"
                 action={
                   <Link href="/seeker/profile">
                     <Button size="small">Go to profile</Button>
@@ -562,7 +562,7 @@ export default function JobDetailPage() {
             ) : null}
 
             <Card size="small" title="Job summary">
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                 <SummaryRow label="Title" value={job.title} />
                 <SummaryRow label="Location" value={job.location} />
                 <SummaryRow label="Due date" value={formatDate(job.deadline)} />
@@ -578,7 +578,7 @@ export default function JobDetailPage() {
                 </Link>
               }
             >
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                 {/* Session name is the available display-name value in the current profile store. */}
                 <SummaryRow label="Display name" value={session?.name || 'Not provided'} />
                 <SummaryRow label="Full name" value={profile?.fullName || 'Not provided'} />

@@ -127,7 +127,7 @@ export default function AdminDashboardPage() {
         <Alert
           type="error"
           showIcon
-          message={error}
+          title={error}
           style={{ marginBottom: 16 }}
           closable
           onClose={() => setError(null)}

@@ -40,7 +40,7 @@ function ApplicationTimeline({ application }: { application: Application }) {
     return (
       <Steps
         size="small"
-        direction="vertical"
+        orientation="vertical"
         current={1}
         status="error"
         items={[
@@ -59,7 +59,7 @@ function ApplicationTimeline({ application }: { application: Application }) {
   return (
     <Steps
       size="small"
-      direction="vertical"
+      orientation="vertical"
       current={current}
       status={application.status === 'Shortlisted' ? 'finish' : 'process'}
       items={LIFECYCLE.map((step, index) => ({
@@ -107,7 +107,7 @@ export default function SeekerApplicationsPage() {
       render: (jobId: string) => {
         const job = jobsById.get(jobId);
         return (
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Link href={`/seeker/jobs/${jobId}`} style={{ fontWeight: 600 }}>
               {job?.title ?? 'Vacancy no longer listed'}
             </Link>
@@ -249,7 +249,7 @@ export default function SeekerApplicationsPage() {
         size="default"
       >
         {selected ? (
-          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={20} style={{ width: '100%' }}>
             <Space size={8} wrap>
               <ApplicationStatusTag status={selected.status} />
               <Tag>Ref {selected.id}</Tag>

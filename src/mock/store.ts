@@ -116,6 +116,8 @@ if (typeof window !== 'undefined') {
 }
 
 let loadGeneration = 0;
+let activeLoadKey: string | null = null;
+let activeLoad: Promise<void> | null = null;
 
 function inferJobCategory(job: Pick<Job, 'title' | 'description'> & { skills?: string[] }): JobCategory {
   const details = `${job.title} ${job.description} ${(job.skills ?? []).join(' ')}`.toLowerCase();
@@ -449,7 +451,38 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export async function loadAppData(session: Session | null = getSession()): Promise<void> {
+export function loadAppData(
+  session: Session | null = getSession(),
+  force = false,
+): Promise<void> {
+  const sessionKey = session
+    ? `${session.userId}:${session.role}:${session.email}:${session.name}`
+    : 'anonymous';
+  if (!force && activeLoad && activeLoadKey === sessionKey) {
+    return activeLoad;
+  }
+
+  const pendingLoad = loadAppDataOnce(session);
+  activeLoadKey = sessionKey;
+  activeLoad = pendingLoad;
+  void pendingLoad.then(
+    () => {
+      if (activeLoad === pendingLoad) {
+        activeLoad = null;
+        activeLoadKey = null;
+      }
+    },
+    () => {
+      if (activeLoad === pendingLoad) {
+        activeLoad = null;
+        activeLoadKey = null;
+      }
+    },
+  );
+  return pendingLoad;
+}
+
+async function loadAppDataOnce(session: Session | null): Promise<void> {
   const generation = ++loadGeneration;
 
   if (!session) {
@@ -587,11 +620,11 @@ export async function loadAppData(session: Session | null = getSession()): Promi
 }
 
 export function refreshAppData(): Promise<void> {
-  return loadAppData(getSession());
+  return loadAppData(getSession(), true);
 }
 
 export function resetMockStore(): Promise<void> {
-  return loadAppData(null);
+  return loadAppData(null, true);
 }
 
 export async function loadJob(id: string): Promise<Job | undefined> {

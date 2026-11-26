@@ -117,7 +117,7 @@ export default function EmployerJobsPage() {
       title: 'Vacancy',
       key: 'title',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Link href={`/employer/jobs/${record.id}`} style={{ fontWeight: 600 }}>
             {record.title}
           </Link>
@@ -213,7 +213,7 @@ export default function EmployerJobsPage() {
       </Space>
 
       {state.error ? (
-        <Alert type="error" showIcon message={state.error} style={{ marginBottom: 16 }} />
+        <Alert type="error" showIcon title={state.error} style={{ marginBottom: 16 }} />
       ) : null}
 
       <Card>
@@ -242,7 +242,7 @@ export default function EmployerJobsPage() {
         title={editing ? `Edit ${editing.title}` : 'Edit vacancy'}
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
-        width={720}
+        size={720}
         destroyOnHidden
       >
         {editing ? (

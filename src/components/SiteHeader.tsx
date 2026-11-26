@@ -225,13 +225,6 @@ export default function SiteHeader() {
                 label: 'My profile',
                 icon: <UserRound size={ICON_SIZE} aria-hidden />,
               },
-        session.role === 'JOB_SEEKER'
-          ? {
-              key: '/employer/verification',
-              label: 'Become an employer',
-              icon: <BriefcaseBusiness size={ICON_SIZE} aria-hidden />,
-            }
-          : null,
         { type: 'divider' },
         {
           key: 'logout',
@@ -371,7 +364,7 @@ export default function SiteHeader() {
           <Dropdown
             trigger={['click']}
             placement="bottomRight"
-            dropdownRender={() => (
+            popupRender={() => (
               <div
                 style={{
                   width: 'min(360px, calc(100vw - 32px))',
@@ -413,7 +406,7 @@ export default function SiteHeader() {
         placement="left"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        width={320}
+        size={320}
       >
         <Menu
           mode="inline"
@@ -423,7 +416,7 @@ export default function SiteHeader() {
           style={{ borderInlineEnd: 'none' }}
         />
         <Divider />
-        <Space direction="vertical" style={{ width: '100%' }} size={8}>
+        <Space orientation="vertical" style={{ width: '100%' }} size={8}>
           {session ? (
             <>
               <div style={{ fontWeight: 600 }}>{session.name}</div>

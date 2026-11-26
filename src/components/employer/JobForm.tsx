@@ -66,7 +66,7 @@ export default function JobForm({
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Create a company first"
+          title="Create a company first"
           description="The recruitment API requires a company before you can post a vacancy."
         />
       ) : null}
@@ -75,7 +75,7 @@ export default function JobForm({
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="Supported vacancy fields"
+        title="Supported vacancy fields"
         description="The API stores a title, company, location, deadline, description and qualifications. Category, work mode, contract type and salary are not available and are not shown."
       />
 

@@ -58,17 +58,17 @@ export default function ForgotPasswordPage() {
         </div>
 
         {error ? (
-          <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />
+          <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />
         ) : null}
 
         {confirmation ? (
           <Alert
             type="success"
             showIcon
-            message={confirmation}
+            title={confirmation}
             description={
               resetUrl ? (
-                <Space direction="vertical" size={4} style={{ marginTop: 8 }}>
+                <Space orientation="vertical" size={4} style={{ marginTop: 8 }}>
                   <Text>
                     The API returned a reset token for testing. Use it to continue:
                   </Text>

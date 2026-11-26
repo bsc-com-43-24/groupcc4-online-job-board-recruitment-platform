@@ -332,7 +332,7 @@ export default function SeekerProfilePage() {
 
         <Col xs={24} lg={8}>
           <Card title="Profile picture" style={{ marginBottom: 16 }}>
-            <Space direction="vertical" align="center" size={12} style={{ width: '100%' }}>
+            <Space orientation="vertical" align="center" size={12} style={{ width: '100%' }}>
               <Avatar
                 size={96}
                 src={profilePicture ?? undefined}
@@ -353,14 +353,14 @@ export default function SeekerProfilePage() {
           </Card>
 
           <Card title="CV">
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
               {cvName ? (
-                <Alert type="success" showIcon message="CV attached" description={cvName} />
+                <Alert type="success" showIcon title="CV attached" description={cvName} />
               ) : (
                 <Alert
                   type="info"
                   showIcon
-                  message="No CV yet"
+                  title="No CV yet"
                   description="A CV is required when you apply for a vacancy."
                 />
               )}

@@ -187,7 +187,7 @@ function JobsContent() {
 
   return (
     <PageContainer maxWidth={1200}>
-      <Space direction="vertical" size={4} style={{ marginBottom: 20 }}>
+      <Space orientation="vertical" size={4} style={{ marginBottom: 20 }}>
         <Title level={2} style={{ margin: 0 }}>
           Browse jobs
         </Title>
@@ -198,7 +198,7 @@ function JobsContent() {
       </Space>
 
       {state.error ? (
-        <Alert type="error" showIcon message={state.error} style={{ marginBottom: 16 }} />
+        <Alert type="error" showIcon title={state.error} style={{ marginBottom: 16 }} />
       ) : null}
 
       <Card style={{ marginBottom: 20 }}>
@@ -282,13 +282,6 @@ function JobsContent() {
             />
           </Col>
 
-          <Col xs={24}>
-            <Alert
-              type="info"
-              showIcon
-              message="Salary data is not provided by the recruitment API, so salary filters are unavailable."
-            />
-          </Col>
         </Row>
 
         {hasSearchState ? (

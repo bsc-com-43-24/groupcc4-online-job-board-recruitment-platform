@@ -105,7 +105,7 @@ export default function ApplicantsTable({
       title: 'Applicant',
       key: 'applicant',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Text strong>{record.seekerName}</Text>
           <Text type="secondary" style={{ fontSize: 13 }}>
             {record.seekerEmail || 'Email not provided by the API'}
@@ -209,7 +209,7 @@ export default function ApplicantsTable({
         size="large"
       >
         {selected ? (
-          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={20} style={{ width: '100%' }}>
             <Space size={8} wrap>
               <ApplicationStatusTag status={selected.status} />
               <Text type="secondary">Ref {selected.id}</Text>
@@ -247,7 +247,7 @@ export default function ApplicantsTable({
             <Alert
               type="info"
               showIcon
-              message="Interview scheduling is not available"
+              title="Interview scheduling is not available"
               description="The recruitment API does not support interview scheduling."
             />
 

@@ -63,7 +63,7 @@ export default function EmployerVerificationPage() {
         <Alert
           type="warning"
           showIcon
-          message="Administrator accounts do not submit employer verification requests."
+          title="Administrator accounts do not submit employer verification requests."
         />
       </div>
     );
@@ -128,7 +128,7 @@ export default function EmployerVerificationPage() {
         <Alert
           type="error"
           showIcon
-          message={error}
+          title={error}
           style={{ marginBottom: 16 }}
           closable
           onClose={() => setError(null)}
@@ -137,7 +137,7 @@ export default function EmployerVerificationPage() {
 
       {latestRequest ? (
         <Card style={{ marginBottom: 24 }}>
-          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={8} style={{ width: '100%' }}>
             <div>
               <Text strong>Latest request: </Text>
               <Text>{latestRequest.companyName}</Text>
@@ -154,13 +154,13 @@ export default function EmployerVerificationPage() {
               {latestRequest.status}
             </Tag>
             {latestRequest.rejectionReason ? (
-              <Alert type="error" showIcon message="Reviewer note" description={latestRequest.rejectionReason} />
+              <Alert type="error" showIcon title="Reviewer note" description={latestRequest.rejectionReason} />
             ) : null}
             {latestRequest.status === 'APPROVED' ? (
               <Alert
                 type="success"
                 showIcon
-                message="Your employer account is approved."
+                title="Your employer account is approved."
                 description={
                   companies.length
                     ? 'You can post jobs using one of your companies.'

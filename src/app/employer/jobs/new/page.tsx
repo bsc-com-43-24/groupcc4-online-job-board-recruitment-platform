@@ -70,7 +70,7 @@ export default function NewEmployerJobPage() {
       </div>
 
       {state.error ? (
-        <Alert type="error" showIcon message={state.error} style={{ marginBottom: 16 }} />
+        <Alert type="error" showIcon title={state.error} style={{ marginBottom: 16 }} />
       ) : null}
 
       <Card>

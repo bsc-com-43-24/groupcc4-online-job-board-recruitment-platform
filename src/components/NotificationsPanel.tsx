@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { App as AntApp, Button, List, Space, Tag, Typography } from 'antd';
+import { App as AntApp, Button, Listy, Space, Tag, Typography } from 'antd';
 import { CheckCheck } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import type { NotificationItem } from '@/mock/types';
@@ -39,7 +39,7 @@ export default function NotificationsPanel({
   };
 
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       <Space style={{ justifyContent: 'space-between', width: '100%' }}>
         <Text type="secondary">
           {unreadCount ? `${unreadCount} unread` : 'You are all caught up'}
@@ -57,16 +57,19 @@ export default function NotificationsPanel({
       </Space>
 
       {notifications.length ? (
-        <List
-          dataSource={visibleNotifications}
-          renderItem={(notification) => (
-            <List.Item style={{ paddingInline: 0 }}>
+        <Listy
+          items={visibleNotifications}
+          rowKey="id"
+          virtual={false}
+          styles={{ item: { paddingInline: 0 } }}
+          itemRender={(notification) => (
+            <div>
               <Link
                 href={notification.href ?? '/notifications'}
                 onClick={() => handleMarkRead(notification)}
                 style={{ display: 'block', width: '100%' }}
               >
-                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                   <Space size={6} wrap>
                     <Text strong={!notification.read}>{notification.title}</Text>
                     {!notification.read ? <Tag color="blue">New</Tag> : null}
@@ -77,7 +80,7 @@ export default function NotificationsPanel({
                   </Text>
                 </Space>
               </Link>
-            </List.Item>
+            </div>
           )}
         />
       ) : (

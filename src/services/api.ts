@@ -1,4 +1,4 @@
-import { clearSession } from '@/services/session';
+import { beginLoginRedirect, clearSession } from '@/services/session';
 import type { Role } from '@/mock/types';
 
 const BASE_URL = '';
@@ -409,9 +409,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const apiError = parseApiErrorResponse(text, response.status);
 
     if (response.status === 401 && redirectOnUnauthorized && typeof window !== 'undefined') {
-      const currentPath = `${window.location.pathname}${window.location.search}`;
-      clearSession();
-      if (!window.location.pathname.startsWith('/login')) {
+      if (window.location.pathname.startsWith('/login')) {
+        clearSession();
+      } else if (beginLoginRedirect()) {
+        const currentPath = `${window.location.pathname}${window.location.search}`;
+        clearSession();
         window.location.replace(
           `/login?session=expired&next=${encodeURIComponent(currentPath)}`,
         );

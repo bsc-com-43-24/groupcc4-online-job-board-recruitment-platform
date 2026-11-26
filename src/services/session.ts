@@ -22,6 +22,7 @@ const TOKEN_KEY = 'token';
 const ROLE_KEY = 'role';
 
 const VALID_ROLES: Role[] = ['JOB_SEEKER', 'EMPLOYER', 'ADMIN'];
+let loginRedirectPending = false;
 
 export interface Session {
   userId: string;
@@ -128,6 +129,18 @@ export function clearSession(): void {
     },
   );
   sessionStore.set(null);
+}
+
+export function beginLoginRedirect(): boolean {
+  if (loginRedirectPending) {
+    return false;
+  }
+  loginRedirectPending = true;
+  return true;
+}
+
+export function isLoginRedirectPending(): boolean {
+  return loginRedirectPending;
 }
 
 export function roleHome(role: Role): string {

@@ -102,7 +102,7 @@ export default function AdminEmployerRequestsPage() {
         <Alert
           type="error"
           showIcon
-          message={error}
+          title={error}
           style={{ marginBottom: 16 }}
           closable
           onClose={() => setError(null)}
@@ -123,10 +123,10 @@ export default function AdminEmployerRequestsPage() {
         title={selected?.companyName ?? 'Request'}
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
-        width={520}
+        size={520}
       >
         {selected ? (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Descriptions column={1} bordered size="small">
               <Descriptions.Item label="Status">{selected.status}</Descriptions.Item>
               <Descriptions.Item label="Contact email">{selected.contactEmail}</Descriptions.Item>
