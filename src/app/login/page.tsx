@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import {
   Alert,
   App as AntApp,
@@ -11,12 +11,10 @@ import {
   Divider,
   Form,
   Input,
-  Space,
   Typography,
 } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { authService } from '@/services/authService';
-import { roleHome, safeNextPath } from '@/services/session';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 
@@ -28,7 +26,6 @@ interface LoginValues {
 }
 
 function LoginContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { message } = AntApp.useApp();
   const [form] = Form.useForm<LoginValues>();
@@ -38,6 +35,19 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAvailable, setRetryAvailable] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const coolingDown = cooldown > 0;
+
+  useEffect(() => {
+    if (!coolingDown) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setCooldown((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [coolingDown]);
 
   const handleFinish = async (values: LoginValues) => {
     setLoading(true);
@@ -53,20 +63,13 @@ function LoginContent() {
       if (!result.success || !result.user) {
         setError(result.message);
         setRetryAvailable(Boolean(result.networkError));
+        if (result.retryAfter) {
+          setCooldown(result.retryAfter);
+        }
         return;
       }
 
       message.success(`Welcome back, ${result.user.name.split(' ')[0]}.`);
-
-      const dashboard = roleHome(result.user.role);
-      const next = safeNextPath(searchParams.get('next'));
-      const rolePrefix = result.user.role === 'EMPLOYER' ? '/employer/' : '/seeker/';
-      const destination =
-        next && (next === dashboard || next.startsWith(rolePrefix))
-          ? next
-          : dashboard;
-      router.replace(destination);
-      router.refresh();
     } catch {
       setError('Sign in failed. Please try again.');
     } finally {
@@ -82,7 +85,6 @@ function LoginContent() {
         justifyContent: 'center',
         alignItems: 'flex-start',
         padding: '48px 16px',
-        background: 'linear-gradient(135deg, #ffffff 0%, #eaf3ff 100%)',
       }}
     >
       <Card style={{ width: '100%', maxWidth: 460 }}>
@@ -97,7 +99,7 @@ function LoginContent() {
           <Alert
             type="success"
             showIcon
-            message="Password reset successfully. Sign in with your new password."
+            title="Password reset successfully. Sign in with your new password."
             style={{ marginBottom: 16 }}
           />
         ) : null}
@@ -107,7 +109,7 @@ function LoginContent() {
             type="warning"
             showIcon
             role="alert"
-            message="Your session has expired, please log in again."
+            title="Your session has expired, please log in again."
             style={{ marginBottom: 16 }}
           />
         ) : null}
@@ -116,7 +118,7 @@ function LoginContent() {
           <Alert
             type="error"
             showIcon
-            message={error}
+            title={error}
             action={
               retryAvailable ? (
                 <Button
@@ -140,7 +142,7 @@ function LoginContent() {
           layout="vertical"
           onFinish={handleFinish}
           requiredMark={false}
-          disabled={loading}
+          disabled={loading || coolingDown}
         >
           <Form.Item
             name="email"
@@ -181,11 +183,12 @@ function LoginContent() {
             htmlType="submit"
             size="large"
             block
-            loading={loading}
-            style={{ marginTop: 4 }}
-          >
-            Log in
-          </Button>
+          loading={loading}
+          disabled={coolingDown}
+          style={{ marginTop: 4 }}
+        >
+          {coolingDown ? `Wait ${cooldown}s` : 'Log in'}
+        </Button>
         </Form>
 
         <Divider style={{ margin: '20px 0' }} />

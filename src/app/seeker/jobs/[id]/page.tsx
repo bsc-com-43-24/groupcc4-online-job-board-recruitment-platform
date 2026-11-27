@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -20,7 +20,6 @@ import {
   Typography,
   Upload,
 } from 'antd';
-import type { UploadProps } from 'antd';
 import {
   Briefcase,
   Building2,
@@ -38,43 +37,25 @@ import PageContainer from '@/components/PageContainer';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import { ApplicationStatusTag } from '@/components/StatusTag';
 import { useHydrated } from '@/hooks/useHydrated';
-import { useJob, useJobApplications } from '@/hooks/useStore';
-import { formatDate, formatSalary, deadlineLabel, isDeadlinePassed } from '@/lib/format';
-import { applyToJob } from '@/mock/store';
+import { useJob, useJobApplications, useProfile } from '@/hooks/useStore';
+import {
+  formatDate,
+  formatFileSize,
+  formatSalary,
+  deadlineLabel,
+  isDeadlinePassed,
+} from '@/lib/format';
+import { loadJob } from '@/mock/store';
+import {
+  ApiRequestError,
+  apiErrorMessage,
+  applicationApi,
+  MAX_UPLOAD_BYTES,
+} from '@/services/api';
+import type { ApplicationResponse } from '@/services/api';
 import { loginHref, useSession } from '@/services/session';
 
 const { Title, Text, Paragraph } = Typography;
-
-const MAX_CV_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = /\.(pdf|docx?)$/i;
-
-const uploadProps = (onReject: (reason: string) => void): UploadProps => ({
-  name: 'cv',
-  maxCount: 1,
-  accept: '.pdf,.doc,.docx',
-  multiple: false,
-  beforeUpload: (file) => {
-    const extensionAllowed = ACCEPTED_EXTENSIONS.test(file.name);
-    const typeAllowed =
-      !file.type ||
-      file.type === 'application/pdf' ||
-      file.type === 'application/msword' ||
-      file.type ===
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-    if (!extensionAllowed || !typeAllowed) {
-      onReject('Attach a PDF or Word document.');
-      return Upload.LIST_IGNORE;
-    }
-
-    if (file.size > MAX_CV_BYTES) {
-      onReject('Your CV must be 5 MB or smaller.');
-      return Upload.LIST_IGNORE;
-    }
-
-    return false;
-  },
-});
 
 function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -119,6 +100,17 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
+function validateApplicationCv(file: File): string | null {
+  const isSupported = /\.(pdf|doc|docx)$/i.test(file.name);
+  if (!isSupported) {
+    return 'Upload a PDF, DOC, or DOCX file.';
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return 'The file must be 5 MB or smaller.';
+  }
+  return null;
+}
+
 function JobNotFound() {
   return (
     <PageContainer maxWidth={720}>
@@ -144,6 +136,7 @@ export default function JobDetailPage() {
   const { message } = AntApp.useApp();
 
   const job = useJob(params?.id);
+  const profile = useProfile(session?.userId);
   const applications = useJobApplications(job?.id);
   const myApplication = applications.find(
     (application) => application.seekerId === session?.userId,
@@ -151,12 +144,33 @@ export default function JobDetailPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [cvName, setCvName] = useState<string | null>(null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetter, setCoverLetter] = useState('');
   const [uploadKey, setUploadKey] = useState(0);
+  const [loadingJob, setLoadingJob] = useState(false);
+  const [submittedApplication, setSubmittedApplication] = useState<ApplicationResponse | null>(null);
+  const [submitError, setSubmitError] = useState<Error | null>(null);
+  const [cvError, setCvError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!params?.id || job) {
+      return;
+    }
+    void (async () => {
+      setLoadingJob(true);
+      try {
+        await loadJob(params.id);
+      } catch {
+        return;
+      } finally {
+        setLoadingJob(false);
+      }
+    })();
+  }, [params?.id, job]);
 
   if (!job) {
-    if (!hydrated) {
+    if (!hydrated || loadingJob) {
       return (
         <PageContainer maxWidth={1100}>
           <PageSkeleton rows={8} />
@@ -168,11 +182,16 @@ export default function JobDetailPage() {
 
   const closed =
     job.status !== 'Active' || isDeadlinePassed(job.deadline);
+  const alreadyApplied = Boolean(myApplication || submittedApplication);
 
   const resetModal = () => {
-    setCvName(null);
+    setCvFile(null);
     setCoverLetter('');
     setUploadKey((key) => key + 1);
+    setSubmittedApplication(null);
+    setSubmitError(null);
+    setCvError('');
+    setFieldErrors({});
   };
 
   const openApply = () => {
@@ -206,46 +225,74 @@ export default function JobDetailPage() {
       return;
     }
 
-    if (!cvName) {
-      message.error('Attach your CV before submitting.');
+    if (submitting || closed || submittedApplication) {
       return;
     }
 
+    if (!cvFile) {
+      setCvError('A CV is required before submitting.');
+      return;
+    }
+
+    setSubmitError(null);
+    setCvError('');
+    setFieldErrors({});
     setSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const application = applyToJob({
-        job,
-        seekerId: session.userId,
-        seekerName: session.name,
-        seekerEmail: session.email,
-        coverLetter: coverLetter.trim() || undefined,
-        cvName,
+      const application = await applicationApi.apply({
+        jobId: params.id,
+        cv: cvFile,
+        coverLetter: coverLetter.trim(),
       });
-
-      if (!application) {
-        message.info('You have already applied to this vacancy.');
-        return;
+      setSubmittedApplication(application);
+    } catch (submitError) {
+      setSubmitError(
+        submitError instanceof Error
+          ? submitError
+          : new Error(apiErrorMessage(submitError)),
+      );
+      if (submitError instanceof ApiRequestError) {
+        const nextFieldErrors: Record<string, string> = {};
+        (submitError.response?.fieldErrors ?? submitError.fieldErrors).forEach((item) => {
+          if (item.field && item.message) {
+            nextFieldErrors[item.field] = item.message;
+          }
+        });
+        setFieldErrors(nextFieldErrors);
+        const cvFieldError = nextFieldErrors.cv;
+        if (
+          submitError.status === 400 &&
+          (cvFieldError ||
+            submitError.code?.toUpperCase().includes('CV') ||
+            submitError.message.toLowerCase().includes('cv'))
+        ) {
+          setCvError(cvFieldError ?? submitError.message);
+        }
       }
-
-      setModalOpen(false);
-      message.success('Application submitted. Track its progress under My applications.');
-      resetModal();
-    } catch {
-      message.error('Could not submit your application. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const applyBlock = myApplication ? (
+  const applyBlock = submittedApplication ? (
     <Alert
       type="success"
       showIcon
-      message="Application submitted"
+      title="Application submitted"
       description={
-        <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size={4}>
+          <Text>{formatDate(submittedApplication.submittedAt)}</Text>
+          <Tag color="processing">PENDING</Tag>
+        </Space>
+      }
+    />
+  ) : myApplication ? (
+    <Alert
+      type="success"
+      showIcon
+      title="Application submitted"
+      description={
+        <Space orientation="vertical" size={4}>
           <Text>
             You applied on {formatDate(myApplication.appliedAt)}.
           </Text>
@@ -260,7 +307,7 @@ export default function JobDetailPage() {
     <Alert
       type="warning"
       showIcon
-      message="Applications are closed"
+      title="Applications are closed"
       description={
         job.status === 'Closed'
           ? 'This vacancy has been closed by the employer.'
@@ -325,7 +372,7 @@ export default function JobDetailPage() {
             <Button icon={<Share2 size={16} aria-hidden />} onClick={handleShare}>
               Share
             </Button>
-            {!myApplication && !closed ? (
+            {!alreadyApplied && !closed ? (
               <Button type="primary" icon={<Send size={16} aria-hidden />} onClick={openApply}>
                 Apply now
               </Button>
@@ -353,7 +400,7 @@ export default function JobDetailPage() {
 
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={16}>
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Card>
               <Title level={4} style={{ marginTop: 0 }}>
                 Job overview
@@ -374,7 +421,7 @@ export default function JobDetailPage() {
               <Title level={4} style={{ marginTop: 0 }}>
                 Qualifications and requirements
               </Title>
-              <Space direction="vertical" size={10} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                 {job.qualifications.length ? (
                   job.qualifications.map((item) => (
                     <Space key={item} align="start" size={10}>
@@ -409,7 +456,7 @@ export default function JobDetailPage() {
                 Job summary
               </Title>
 
-              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                 <SummaryRow label="Employer" value={job.company} />
                 <SummaryRow label="Location" value={job.location} />
                 <SummaryRow label="Work mode" value={job.workMode} />
@@ -438,56 +485,174 @@ export default function JobDetailPage() {
       <Modal
         title={`Apply for ${job.title}`}
         open={modalOpen}
-        onCancel={() => setModalOpen(false)}
+        footer={submittedApplication ? null : undefined}
+        onCancel={() => {
+          if (!submitting) {
+            setModalOpen(false);
+          }
+        }}
         okText="Submit application"
-        okButtonProps={{ loading: submitting, disabled: !cvName }}
+        okButtonProps={{ loading: submitting, disabled: closed || submitting || !cvFile }}
+        cancelButtonProps={{ disabled: submitting }}
         onOk={handleSubmit}
         destroyOnHidden
       >
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Text type="secondary">
-            {job.company} will receive your CV and the details on your profile.
-          </Text>
-
-          <div>
-            <Text strong>Upload your CV</Text>
-            <Upload.Dragger
-              key={uploadKey}
-              {...uploadProps((reason) => message.error(reason))}
-              onChange={({ fileList }) => {
-                setCvName(fileList[0]?.name ?? null);
-              }}
-              style={{ marginTop: 8 }}
-            >
-              <p style={{ margin: 0 }}>
-                <UploadCloud size={28} aria-hidden color="#2563eb" />
-              </p>
-              <p className="ant-upload-text">Click or drag your CV here</p>
-              <p className="ant-upload-hint">PDF or Word document, up to 5 MB.</p>
-            </Upload.Dragger>
-          </div>
-
-          <div>
-            <Text strong>Cover letter (optional)</Text>
-            <Input.TextArea
-              rows={4}
-              style={{ marginTop: 8 }}
-              placeholder="Tell the employer why you are a good fit."
-              value={coverLetter}
-              onChange={(event) => setCoverLetter(event.target.value)}
-              maxLength={800}
-              showCount
-            />
-          </div>
-
-          {cvName ? (
+        {submittedApplication ? (
+          <Result
+            status="success"
+            title="Application submitted"
+            subTitle={
+              <Space orientation="vertical" size={4}>
+                <Text>{submittedApplication.job.title}</Text>
+                <Text type="secondary">
+                  Submitted {formatDate(submittedApplication.submittedAt)}
+                </Text>
+                <Tag color="processing">PENDING</Tag>
+              </Space>
+            }
+            extra={[
+              <Link href="/seeker/applications" key="applications">
+                <Button type="primary">My applications</Button>
+              </Link>,
+              <Link href="/seeker/jobs" key="jobs">
+                <Button>Browse jobs</Button>
+              </Link>,
+            ]}
+          />
+        ) : (
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+            <input type="hidden" name="jobId" value={params.id} />
             <Text type="secondary">
-              <Download size={14} aria-hidden /> Attached: {cvName}
+              {job.company} will receive your CV and the details on your profile.
             </Text>
-          ) : (
-            <Text type="secondary">A CV is required before you can submit.</Text>
-          )}
-        </Space>
+
+            {submitError ? (
+              <Alert
+                type="error"
+                showIcon
+                title={
+                  submitError instanceof ApiRequestError
+                    ? submitError.response?.message ?? apiErrorMessage(submitError)
+                    : apiErrorMessage(submitError)
+                }
+                description={
+                  submitError instanceof ApiRequestError &&
+                  submitError.response?.correlationId ? (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Reference: {submitError.response.correlationId}
+                    </Text>
+                  ) : undefined
+                }
+              />
+            ) : null}
+
+            {submitError instanceof ApiRequestError &&
+            submitError.status === 400 &&
+            submitError.code === 'PROFILE_INCOMPLETE' ? (
+              <Alert
+                type="warning"
+                showIcon
+                title="Complete your profile before applying"
+                action={
+                  <Link href="/seeker/profile">
+                    <Button size="small">Go to profile</Button>
+                  </Link>
+                }
+              />
+            ) : null}
+
+            <Card size="small" title="Job summary">
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                <SummaryRow label="Title" value={job.title} />
+                <SummaryRow label="Location" value={job.location} />
+                <SummaryRow label="Due date" value={formatDate(job.deadline)} />
+              </Space>
+            </Card>
+
+            <Card
+              size="small"
+              title="Profile preview"
+              extra={
+                <Link href="/seeker/profile">
+                  <Button type="link" size="small">Edit profile</Button>
+                </Link>
+              }
+            >
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                {/* Session name is the available display-name value in the current profile store. */}
+                <SummaryRow label="Display name" value={session?.name || 'Not provided'} />
+                <SummaryRow label="Full name" value={profile?.fullName || 'Not provided'} />
+                <SummaryRow label="Phone" value={profile?.phone || 'Not provided'} />
+                <SummaryRow label="Location" value={profile?.location || 'Not provided'} />
+              </Space>
+            </Card>
+
+            <div>
+              <Text strong>Upload your CV (required)</Text>
+              <Upload.Dragger
+                key={uploadKey}
+                name="cv"
+                maxCount={1}
+                disabled={closed || submitting}
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                beforeUpload={(file) => {
+                  const uploadError = validateApplicationCv(file);
+                  if (uploadError) {
+                    setCvFile(null);
+                    setCvError(uploadError);
+                    return Upload.LIST_IGNORE;
+                  }
+                  setCvError('');
+                  setCvFile(file);
+                  return false;
+                }}
+                onRemove={() => {
+                  setCvFile(null);
+                  setCvError('');
+                }}
+                style={{ marginTop: 8 }}
+              >
+                <p style={{ margin: 0 }}>
+                  <UploadCloud size={28} aria-hidden color="#2563eb" />
+                </p>
+                <p className="ant-upload-text">Click or drag your CV here</p>
+                <p className="ant-upload-hint">PDF, DOC, or DOCX, up to 5 MB.</p>
+              </Upload.Dragger>
+              {cvFile ? (
+                <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+                  <Download size={14} aria-hidden /> {cvFile.name} ({formatFileSize(cvFile.size)})
+                </Text>
+              ) : null}
+              {cvError || fieldErrors.cv ? (
+                <Text type="danger" style={{ display: 'block', marginTop: 4 }}>
+                  {cvError || fieldErrors.cv}
+                </Text>
+              ) : null}
+            </div>
+
+            <div>
+              <Text strong>Cover letter (optional)</Text>
+              <Input.TextArea
+                rows={4}
+                style={{ marginTop: 8 }}
+                placeholder="Tell the employer why you are a good fit."
+                value={coverLetter}
+                disabled={submitting}
+                status={fieldErrors.coverLetter ? 'error' : undefined}
+                onChange={(event) => setCoverLetter(event.target.value)}
+                maxLength={800}
+                showCount
+              />
+              {fieldErrors.coverLetter ? (
+                <Text type="danger">{fieldErrors.coverLetter}</Text>
+              ) : null}
+            </div>
+
+            {fieldErrors.jobId ? (
+              <Text type="danger">{fieldErrors.jobId}</Text>
+            ) : null}
+          </Space>
+        )}
       </Modal>
     </PageContainer>
   );

@@ -7,8 +7,8 @@ import {
   Button,
   Descriptions,
   Drawer,
+  Alert,
   Input,
-  Popconfirm,
   Select,
   Space,
   Table,
@@ -17,15 +17,9 @@ import {
 import type { TableProps } from 'antd';
 import { FileText } from 'lucide-react';
 import { ApplicationStatusTag } from '@/components/StatusTag';
-import InterviewDetails from '@/components/InterviewDetails';
-import InterviewForm from '@/components/employer/InterviewForm';
 import EmptyState from '@/components/ui/EmptyState';
-import {
-  cancelInterview,
-  scheduleInterview,
-  setApplicationStatus,
-  updateInterview,
-} from '@/mock/store';
+import { setApplicationStatus } from '@/mock/store';
+import { apiErrorMessage } from '@/services/api';
 import { formatDate } from '@/lib/format';
 import {
   APPLICATION_STATUSES,
@@ -59,7 +53,7 @@ export default function ApplicantsTable({
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [interviewFormOpen, setInterviewFormOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -90,48 +84,19 @@ export default function ApplicantsTable({
 
   const selected = applications.find((item) => item.id === selectedId) ?? null;
 
-  const changeStatus = (application: Application, status: ApplicationStatus) => {
+  const changeStatus = async (application: Application, status: ApplicationStatus) => {
+    setUpdating(true);
     try {
-      setApplicationStatus(application.id, status);
+      const updated = await setApplicationStatus(application.id, status);
+      if (!updated) {
+        message.error('This status is not supported by the recruitment API.');
+        return;
+      }
       message.success(`${application.seekerName} moved to ${status}.`);
-    } catch {
-      message.error('Could not update the application status. Please try again.');
-    }
-  };
-
-  const saveInterview = (
-    application: Application,
-    interview: Parameters<typeof scheduleInterview>[1],
-  ): boolean => {
-    try {
-      const saved =
-        application.interview?.status === 'Scheduled'
-          ? updateInterview(application.id, interview)
-          : scheduleInterview(application.id, interview);
-
-      if (saved) {
-        message.success(
-          application.interview?.status === 'Scheduled'
-            ? 'Interview updated. The applicant has been notified.'
-            : 'Interview scheduled. The applicant has been notified.',
-        );
-      }
-      return saved;
-    } catch {
-      message.error('Could not save the interview. Please try again.');
-      return false;
-    }
-  };
-
-  const handleCancelInterview = (application: Application) => {
-    try {
-      if (cancelInterview(application.id)) {
-        message.success('Interview cancelled. The applicant has been notified.');
-      } else {
-        message.error('This interview is no longer scheduled.');
-      }
-    } catch {
-      message.error('Could not cancel this interview. Please try again.');
+    } catch (statusError) {
+      message.error(apiErrorMessage(statusError));
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -140,10 +105,10 @@ export default function ApplicantsTable({
       title: 'Applicant',
       key: 'applicant',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Text strong>{record.seekerName}</Text>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            {record.seekerEmail}
+            {record.seekerEmail || 'Email not provided by the API'}
           </Text>
         </Space>
       ),
@@ -240,21 +205,20 @@ export default function ApplicantsTable({
       <Drawer
         title={selected ? selected.seekerName : 'Applicant'}
         open={Boolean(selected)}
-        onClose={() => {
-          setSelectedId(null);
-          setInterviewFormOpen(false);
-        }}
+        onClose={() => setSelectedId(null)}
         size="large"
       >
         {selected ? (
-          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={20} style={{ width: '100%' }}>
             <Space size={8} wrap>
               <ApplicationStatusTag status={selected.status} />
               <Text type="secondary">Ref {selected.id}</Text>
             </Space>
 
             <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label="Email">{selected.seekerEmail}</Descriptions.Item>
+              <Descriptions.Item label="Email">
+                {selected.seekerEmail || 'Not provided by the API'}
+              </Descriptions.Item>
               <Descriptions.Item label="Applied on">
                 {formatDate(selected.appliedAt)}
               </Descriptions.Item>
@@ -280,44 +244,12 @@ export default function ApplicantsTable({
               <Text type="secondary">No cover letter was provided.</Text>
             )}
 
-            <div>
-              <Space style={{ justifyContent: 'space-between', width: '100%' }} wrap>
-                <Text strong>Interview</Text>
-                {selected.interview?.status === 'Scheduled' ? (
-                  <Space size={4}>
-                    <Button type="link" onClick={() => setInterviewFormOpen(true)}>
-                      Edit
-                    </Button>
-                    <Popconfirm
-                      title="Cancel this interview?"
-                      description="The job seeker will be notified."
-                      okText="Cancel interview"
-                      okButtonProps={{ danger: true }}
-                      onConfirm={() => handleCancelInterview(selected)}
-                    >
-                      <Button type="link" danger>
-                        Cancel interview
-                      </Button>
-                    </Popconfirm>
-                  </Space>
-                ) : selected.status === 'Shortlisted' ? (
-                  <Button type="primary" onClick={() => setInterviewFormOpen(true)}>
-                    Schedule interview
-                  </Button>
-                ) : null}
-              </Space>
-              {selected.interview ? (
-                <div style={{ marginTop: 10 }}>
-                  <InterviewDetails interview={selected.interview} />
-                </div>
-              ) : (
-                <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                  {selected.status === 'Shortlisted'
-                    ? 'No interview has been scheduled yet.'
-                    : 'Interviews can be scheduled once an applicant is shortlisted.'}
-                </Text>
-              )}
-            </div>
+            <Alert
+              type="info"
+              showIcon
+              title="Interview scheduling is not available"
+              description="The recruitment API does not support interview scheduling."
+            />
 
             <div>
               <Text strong>Move to</Text>
@@ -327,9 +259,10 @@ export default function ApplicantsTable({
                 ).map((status) => (
                   <Button
                     key={status}
-                    onClick={() => changeStatus(selected, status)}
+                    onClick={() => void changeStatus(selected, status)}
                     danger={status === 'Rejected'}
-                    type={status === 'Hired' ? 'primary' : 'default'}
+                    type={status === 'Shortlisted' ? 'primary' : 'default'}
+                    loading={updating}
                   >
                     {status}
                   </Button>
@@ -345,17 +278,6 @@ export default function ApplicantsTable({
           </Space>
         ) : null}
       </Drawer>
-
-      {selected ? (
-        <InterviewForm
-          key={`${selected.id}-${selected.interview?.status ?? 'new'}`}
-          open={interviewFormOpen}
-          applicantName={selected.seekerName}
-          interview={selected.interview}
-          onClose={() => setInterviewFormOpen(false)}
-          onSave={(interview) => saveInterview(selected, interview)}
-        />
-      ) : null}
     </>
   );
 }

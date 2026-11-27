@@ -3,17 +3,20 @@
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useHydrated } from '@/hooks/useHydrated';
-import { loginHref, roleHome, useSession } from '@/services/session';
+import {
+  isLoginRedirectPending,
+  loginHref,
+  roleHome,
+  safeNextPath,
+  useSession,
+} from '@/services/session';
 import type { Role } from '@/mock/types';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import UnauthorizedResult from '@/components/UnauthorizedResult';
 
 type ProtectedRouteProps = {
   children: ReactNode;
-} & (
-  | { role: Role; guestOnly?: false }
-  | { role?: never; guestOnly: true }
-);
+} & ({ role: Role | Role[]; guestOnly?: false } | { role?: never; guestOnly: true });
 
 export default function ProtectedRoute({
   children,
@@ -30,11 +33,25 @@ export default function ProtectedRoute({
     }
 
     if (guestOnly && session) {
-      router.replace(roleHome(session.role));
+      const next = safeNextPath(
+        new URLSearchParams(window.location.search).get('next'),
+      );
+      const rolePrefix =
+        session.role === 'ADMIN'
+          ? '/admin/'
+          : session.role === 'EMPLOYER'
+            ? '/employer/'
+            : '/seeker/';
+      const destination =
+        next &&
+        (next === roleHome(session.role) || next.startsWith(rolePrefix))
+          ? next
+          : roleHome(session.role);
+      router.replace(destination);
       return;
     }
 
-    if (!guestOnly && !session) {
+    if (!guestOnly && !session && !isLoginRedirectPending()) {
       router.replace(
         loginHref(`${window.location.pathname}${window.location.search}`),
       );
@@ -61,7 +78,8 @@ export default function ProtectedRoute({
     );
   }
 
-  if (session.role !== role) {
+  const allowedRoles = Array.isArray(role) ? role : role ? [role] : [];
+  if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
     return <UnauthorizedResult />;
   }
 

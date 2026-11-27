@@ -1,8 +1,7 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Alert,
   App as AntApp,
@@ -12,28 +11,20 @@ import {
   Divider,
   Form,
   Input,
-  Tabs,
   Typography,
 } from 'antd';
 import {
-  BankOutlined,
   LockOutlined,
   MailOutlined,
-  UserAddOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { authService } from '@/services/authService';
-import type { Role } from '@/mock/types';
-import { roleHome } from '@/services/session';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import PageSkeleton from '@/components/ui/PageSkeleton';
 
 const { Title, Text } = Typography;
 
 interface RegisterValues {
-  fullName?: string;
-  companyName?: string;
-  contactName?: string;
+  fullName: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -41,49 +32,29 @@ interface RegisterValues {
 }
 
 function RegisterContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { message } = AntApp.useApp();
-  const [form] = Form.useForm<RegisterValues>();
-
-  const roleParam = searchParams.get('role');
-  const [activeRole, setActiveRole] = useState<Role>(
-    roleParam === 'EMPLOYER' ? 'EMPLOYER' : 'SEEKER',
-  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleRoleChange = (key: string) => {
-    setActiveRole(key as Role);
-    setError(null);
-    form.resetFields();
-  };
 
   const handleFinish = async (values: RegisterValues) => {
     setLoading(true);
     setError(null);
 
-    const isEmployer = activeRole === 'EMPLOYER';
-    const name = isEmployer ? values.contactName ?? '' : values.fullName ?? '';
-
     const result = await authService.register({
       email: values.email,
       password: values.password,
-      role: activeRole,
-      name,
-      companyName: isEmployer ? values.companyName : undefined,
+      role: 'JOB_SEEKER',
+      name: values.fullName,
     });
 
-    setLoading(false);
-
     if (!result.success || !result.user) {
+      setLoading(false);
       setError(result.message);
       return;
     }
 
+    setLoading(false);
     message.success('Account created. Welcome aboard!');
-    router.replace(roleHome(result.user.role));
-    router.refresh();
   };
 
   return (
@@ -96,45 +67,21 @@ function RegisterContent() {
         padding: '48px 16px',
       }}
     >
-      <Card style={{ width: '100%', maxWidth: 520 }}>
+      <Card style={{ width: '100%', maxWidth: 560 }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <Title level={3} style={{ marginBottom: 6 }}>
-            Create an account
+            Create a job seeker account
           </Title>
           <Text type="secondary">
-            Register as a job seeker to apply, or as an employer to post vacancies.
+            Register as a job seeker to apply for open roles.
           </Text>
         </div>
-
-        <Tabs
-          activeKey={activeRole}
-          onChange={handleRoleChange}
-          centered
-          items={[
-            {
-              key: 'SEEKER',
-              label: (
-                <span>
-                  <UserOutlined aria-hidden /> Job Seeker
-                </span>
-              ),
-            },
-            {
-              key: 'EMPLOYER',
-              label: (
-                <span>
-                  <BankOutlined aria-hidden /> Employer
-                </span>
-              ),
-            },
-          ]}
-        />
 
         {error ? (
           <Alert
             type="error"
             showIcon
-            message={error}
+            title={error}
             style={{ marginBottom: 16 }}
             closable
             onClose={() => setError(null)}
@@ -142,61 +89,26 @@ function RegisterContent() {
         ) : null}
 
         <Form
-          form={form}
           layout="vertical"
           onFinish={handleFinish}
           requiredMark={false}
           disabled={loading}
         >
-          {activeRole === 'SEEKER' ? (
-            <Form.Item
-              name="fullName"
-              label="Full name"
-              rules={[
-                { required: true, whitespace: true, message: 'Enter your full name' },
-                { min: 2, message: 'Name must be at least 2 characters' },
-              ]}
-            >
-              <Input
-                prefix={<UserOutlined aria-hidden />}
-                placeholder="e.g. Thandiwe Banda"
-                size="large"
-                autoComplete="name"
-              />
-            </Form.Item>
-          ) : (
-            <>
-              <Form.Item
-                name="companyName"
-                label="Company name"
-                rules={[
-                  { required: true, whitespace: true, message: 'Enter your company name' },
-                ]}
-              >
-                <Input
-                  prefix={<BankOutlined aria-hidden />}
-                  placeholder="e.g. TechCorp Solutions"
-                  size="large"
-                  autoComplete="organization"
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="contactName"
-                label="Contact person"
-                rules={[
-                  { required: true, whitespace: true, message: 'Enter the contact person' },
-                ]}
-              >
-                <Input
-                  prefix={<UserAddOutlined aria-hidden />}
-                  placeholder="e.g. Grace Mwale"
-                  size="large"
-                  autoComplete="name"
-                />
-              </Form.Item>
-            </>
-          )}
+          <Form.Item
+            name="fullName"
+            label="Full name"
+            rules={[
+              { required: true, whitespace: true, message: 'Enter your full name' },
+              { min: 2, message: 'Name must be at least 2 characters' },
+            ]}
+          >
+            <Input
+              prefix={<UserOutlined aria-hidden />}
+              placeholder="e.g. Thandiwe Banda"
+              size="large"
+              autoComplete="name"
+            />
+          </Form.Item>
 
           <Form.Item
             name="email"
@@ -220,12 +132,13 @@ function RegisterContent() {
             label="Password"
             rules={[
               { required: true, message: 'Enter a password' },
-              { min: 8, message: 'Use at least 8 characters' },
+              { min: 12, message: 'Use at least 12 characters' },
+              { max: 72, message: 'Use no more than 72 characters' },
             ]}
           >
             <Input.Password
               prefix={<LockOutlined aria-hidden />}
-              placeholder="At least 8 characters"
+              placeholder="At least 12 characters"
               size="large"
               autoComplete="new-password"
             />
@@ -267,13 +180,11 @@ function RegisterContent() {
               },
             ]}
           >
-            <Checkbox>
-              I agree to the terms of use and privacy policy for this demo.
-            </Checkbox>
+            <Checkbox>I agree to the terms of use and privacy policy.</Checkbox>
           </Form.Item>
 
           <Button type="primary" htmlType="submit" size="large" block loading={loading}>
-            Register as {activeRole === 'SEEKER' ? 'Job Seeker' : 'Employer'}
+            Register as Job Seeker
           </Button>
         </Form>
 
@@ -293,9 +204,7 @@ function RegisterContent() {
 export default function RegisterPage() {
   return (
     <ProtectedRoute guestOnly>
-      <Suspense fallback={<PageSkeleton rows={7} />}>
-        <RegisterContent />
-      </Suspense>
+      <RegisterContent />
     </ProtectedRoute>
   );
 }

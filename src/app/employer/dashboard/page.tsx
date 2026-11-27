@@ -6,7 +6,7 @@ import {
   Button,
   Card,
   Col,
-  List,
+  Listy,
   Row,
   Space,
   Statistic,
@@ -19,7 +19,6 @@ import { BriefcaseBusiness, Users } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import DeniedAlert from '@/components/DeniedAlert';
 import EmptyState from '@/components/ui/EmptyState';
-import InterviewDetails from '@/components/InterviewDetails';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import { ApplicationStatusTag, JobStatusTag } from '@/components/StatusTag';
 import { useHydrated } from '@/hooks/useHydrated';
@@ -44,15 +43,15 @@ export default function EmployerDashboardPage() {
     const shortlisted = applications.filter(
       (application) => application.status === 'Shortlisted',
     ).length;
-    const hired = applications.filter(
-      (application) => application.status === 'Hired',
+    const rejected = applications.filter(
+      (application) => application.status === 'Rejected',
     ).length;
 
     return [
       { label: 'Active vacancies', value: active },
       { label: 'Total applicants', value: applications.length },
       { label: 'Shortlisted', value: shortlisted },
-      { label: 'Hired', value: hired },
+      { label: 'Rejected', value: rejected },
     ];
   }, [jobs, applications]);
 
@@ -73,15 +72,11 @@ export default function EmployerDashboardPage() {
     [jobs, applications],
   );
 
-  const scheduledInterviews = useMemo(
+  const shortlistedApplications = useMemo(
     () =>
       applications
-        .filter((application) => application.interview?.status === 'Scheduled')
-        .sort((a, b) => {
-          const aStart = `${a.interview?.date}T${a.interview?.time}`;
-          const bStart = `${b.interview?.date}T${b.interview?.time}`;
-          return aStart.localeCompare(bStart);
-        }),
+        .filter((application) => application.status === 'Shortlisted')
+        .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)),
     [applications],
   );
 
@@ -90,7 +85,7 @@ export default function EmployerDashboardPage() {
       title: 'Vacancy',
       key: 'title',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Link href={`/employer/jobs/${record.id}`} style={{ fontWeight: 600 }}>
             {record.title}
           </Link>
@@ -164,7 +159,7 @@ export default function EmployerDashboardPage() {
       >
         <Row gutter={[16, 16]} align="middle" justify="space-between">
           <Col xs={24} lg={15}>
-            <Space direction="vertical" size={6}>
+            <Space orientation="vertical" size={6}>
               <Text style={{ color: 'rgba(255,255,255,0.72)', letterSpacing: 1, fontWeight: 600 }}>
                 EMPLOYER DASHBOARD
               </Text>
@@ -197,7 +192,7 @@ export default function EmployerDashboardPage() {
               <Statistic
                 title={stat.label}
                 value={stat.value}
-                valueStyle={{ fontSize: 26, fontWeight: 700 }}
+                styles={{ content: { fontSize: 26, fontWeight: 700 } }}
               />
             </Card>
           </Col>
@@ -246,26 +241,26 @@ export default function EmployerDashboardPage() {
             }
           >
             {applications.length ? (
-              <List
-                dataSource={applications.slice(0, 5)}
-                renderItem={(application) => (
-                  <List.Item>
-                    <List.Item.Meta
-                      avatar={<BriefcaseBusiness size={18} color="#2563eb" aria-hidden />}
-                      title={application.seekerName}
-                      description={
-                        <Space direction="vertical" size={2}>
-                          <Text type="secondary" style={{ fontSize: 13 }}>
-                            {jobsById.get(application.jobId)?.title ?? 'Removed vacancy'}
-                          </Text>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {formatDate(application.appliedAt)}
-                          </Text>
-                        </Space>
-                      }
-                    />
+              <Listy
+                items={applications.slice(0, 5)}
+                rowKey="id"
+                virtual={false}
+                itemRender={(application) => (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <BriefcaseBusiness size={18} color="#2563eb" aria-hidden />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text strong>{application.seekerName}</Text>
+                      <div>
+                        <Text type="secondary" style={{ fontSize: 13 }}>
+                          {jobsById.get(application.jobId)?.title ?? 'Removed vacancy'}
+                        </Text>
+                      </div>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {formatDate(application.appliedAt)}
+                      </Text>
+                    </div>
                     <ApplicationStatusTag status={application.status} />
-                  </List.Item>
+                  </div>
                 )}
               />
             ) : (
@@ -279,40 +274,41 @@ export default function EmployerDashboardPage() {
       </Row>
 
       <Card
-        title="Scheduled interviews"
+        title="Shortlisted applicants"
         style={{ marginTop: 16 }}
         extra={
-          <Link href="/employer/applicants">
-            <Button type="link">Manage applicants</Button>
+          <Link href="/employer/shortlist">
+            <Button type="link">View retained shortlist</Button>
           </Link>
         }
       >
-        {scheduledInterviews.length ? (
-          <List
-            dataSource={scheduledInterviews}
-            renderItem={(application) => (
-              <List.Item>
-                <List.Item.Meta
-                  avatar={<BriefcaseBusiness size={18} color="#2563eb" aria-hidden />}
-                  title={application.seekerName}
-                  description={
-                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                      <Link href={`/employer/jobs/${application.jobId}`}>
-                        {jobsById.get(application.jobId)?.title ?? 'Removed vacancy'}
-                      </Link>
-                      {application.interview ? (
-                        <InterviewDetails interview={application.interview} />
-                      ) : null}
-                    </Space>
-                  }
-                />
-              </List.Item>
+        {shortlistedApplications.length ? (
+          <Listy
+            items={shortlistedApplications.slice(0, 5)}
+            rowKey="id"
+            virtual={false}
+            itemRender={(application) => (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <BriefcaseBusiness size={18} color="#2563eb" aria-hidden />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text strong>{application.seekerName}</Text>
+                  <div>
+                    <Link href={`/employer/jobs/${application.jobId}`}>
+                      {jobsById.get(application.jobId)?.title ?? 'Removed vacancy'}
+                    </Link>
+                  </div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Applied {formatDate(application.appliedAt)}
+                  </Text>
+                </div>
+                <ApplicationStatusTag status={application.status} />
+              </div>
             )}
           />
         ) : (
           <EmptyState
-            title="No interviews scheduled"
-            description="Interviews you schedule with shortlisted applicants will appear here."
+            title="No shortlisted applicants yet"
+            description="Shortlist candidates from the applicants page to see them here."
           />
         )}
       </Card>

@@ -58,19 +58,19 @@ export default function ForgotPasswordPage() {
         </div>
 
         {error ? (
-          <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />
+          <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />
         ) : null}
 
         {confirmation ? (
           <Alert
             type="success"
             showIcon
-            message={confirmation}
+            title={confirmation}
             description={
               resetUrl ? (
-                <Space direction="vertical" size={4} style={{ marginTop: 8 }}>
+                <Space orientation="vertical" size={4} style={{ marginTop: 8 }}>
                   <Text>
-                    Email delivery is not configured in this browser demo. Use this demo reset link:
+                    The API returned a reset token for testing. Use it to continue:
                   </Text>
                   <Link href={resetUrl}>Reset your password</Link>
                 </Space>

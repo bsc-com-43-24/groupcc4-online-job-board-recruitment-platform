@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
@@ -26,11 +26,17 @@ import JobForm, { toJobPatch } from '@/components/employer/JobForm';
 import UnauthorizedResult from '@/components/UnauthorizedResult';
 import type { JobFormValues } from '@/components/employer/JobForm';
 import { useHydrated } from '@/hooks/useHydrated';
-import { useJob, useJobApplications, useJobs } from '@/hooks/useStore';
+import {
+  useCompanies,
+  useJob,
+  useJobApplications,
+  useJobs,
+  useMockState,
+} from '@/hooks/useStore';
 import { deadlineLabel, formatDate, formatSalary } from '@/lib/format';
-import { updateJob } from '@/mock/store';
+import { loadJob, updateJob } from '@/mock/store';
+import { apiErrorMessage } from '@/services/api';
 import { useSession } from '@/services/session';
-import type { JobStatus } from '@/mock/types';
 
 const { Title, Text } = Typography;
 
@@ -41,24 +47,47 @@ export default function EmployerJobDetailPage() {
   const job = useJob(params?.id);
   const applications = useJobApplications(params?.id);
   const allJobs = useJobs();
+  const companies = useCompanies();
+  const state = useMockState();
   const { message } = AntApp.useApp();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingJob, setLoadingJob] = useState(false);
 
   const jobsById = useMemo(() => new Map(allJobs.map((item) => [item.id, item])), [allJobs]);
 
-  const handleSave = (values: JobFormValues, status: JobStatus) => {
+  useEffect(() => {
+    if (!params?.id || job) {
+      return;
+    }
+    void (async () => {
+      setLoadingJob(true);
+      try {
+        await loadJob(params.id);
+      } catch {
+        return;
+      } finally {
+        setLoadingJob(false);
+      }
+    })();
+  }, [params?.id, job]);
+
+  const handleSave = async (values: JobFormValues) => {
     if (!job) {
       return;
     }
 
     setSaving(true);
     try {
-      updateJob(job.id, toJobPatch(values, status));
+      await updateJob(job.id, {
+        ...toJobPatch(values),
+        employerId: job.employerId,
+        company: job.company,
+      });
       setEditing(false);
       message.success('Vacancy updated.');
-    } catch {
-      message.error('Could not update this vacancy. Please try again.');
+    } catch (saveError) {
+      message.error(apiErrorMessage(saveError));
     } finally {
       setSaving(false);
     }
@@ -73,6 +102,13 @@ export default function EmployerJobDetailPage() {
   }
 
   if (!job) {
+    if (loadingJob) {
+      return (
+        <PageContainer maxWidth={1180}>
+          <PageSkeleton rows={10} />
+        </PageContainer>
+      );
+    }
     return (
       <PageContainer maxWidth={720}>
         <Result
@@ -107,6 +143,10 @@ export default function EmployerJobDetailPage() {
           <Button icon={<ArrowLeft size={16} aria-hidden />}>Back to my jobs</Button>
         </Link>
       </Space>
+
+      {state.error ? (
+        <Alert type="error" showIcon title={state.error} style={{ marginBottom: 16 }} />
+      ) : null}
 
       <Card style={{ marginBottom: 16 }}>
         <Space
@@ -146,16 +186,6 @@ export default function EmployerJobDetailPage() {
             { key: 'applicants', label: 'Applicants', children: applications.length },
           ]}
         />
-
-        {job.status === 'Draft' ? (
-          <Alert
-            type="info"
-            showIcon
-            style={{ marginTop: 16 }}
-            message="This vacancy is still a draft"
-            description="Only you can see it. Edit the vacancy and publish to make it visible to job seekers."
-          />
-        ) : null}
       </Card>
 
       <Row gutter={[16, 16]}>
@@ -204,10 +234,11 @@ export default function EmployerJobDetailPage() {
         title="Edit vacancy"
         open={editing}
         onClose={() => setEditing(false)}
-        width={720}
+        size={720}
         destroyOnHidden
       >
         <JobForm
+          companies={companies}
           initialValues={job}
           submitLabel="Save changes"
           submitting={saving}

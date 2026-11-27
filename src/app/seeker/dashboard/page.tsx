@@ -8,7 +8,7 @@ import {
   Button,
   Card,
   Col,
-  List,
+  Listy,
   Progress,
   Row,
   Space,
@@ -81,10 +81,9 @@ export default function SeekerDashboardPage() {
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {
       Total: applications.length,
-      'Under Review': 0,
+      Submitted: 0,
       Shortlisted: 0,
-      Interviewed: 0,
-      Hired: 0,
+      Rejected: 0,
     };
 
     applications.forEach((application) => {
@@ -129,7 +128,7 @@ export default function SeekerDashboardPage() {
       >
         <Row gutter={[16, 16]} align="middle" justify="space-between">
           <Col xs={24} lg={15}>
-            <Space direction="vertical" size={6}>
+            <Space orientation="vertical" size={6}>
               <Text style={{ color: 'rgba(255,255,255,0.72)', letterSpacing: 1, fontWeight: 600 }}>
                 JOB SEEKER DASHBOARD
               </Text>
@@ -159,17 +158,16 @@ export default function SeekerDashboardPage() {
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         {[
           { label: 'Total applications', value: statusCounts.Total },
-          { label: 'Under review', value: statusCounts['Under Review'] },
+          { label: 'Submitted', value: statusCounts.Submitted },
           { label: 'Shortlisted', value: statusCounts.Shortlisted },
-          { label: 'Interviews', value: statusCounts.Interviewed },
-          { label: 'Hired', value: statusCounts.Hired },
+          { label: 'Rejected', value: statusCounts.Rejected },
         ].map((stat) => (
           <Col xs={12} md={8} lg={4} key={stat.label}>
             <Card>
               <Statistic
                 title={stat.label}
                 value={stat.value}
-                valueStyle={{ fontSize: 26, fontWeight: 700 }}
+                styles={{ content: { fontSize: 26, fontWeight: 700 } }}
               />
             </Card>
           </Col>
@@ -251,7 +249,7 @@ export default function SeekerDashboardPage() {
             </Row>
           </>
         ) : (
-          <Space direction="vertical" size={12}>
+          <Space orientation="vertical" size={12}>
             <Text type="secondary">Your profile details will appear here after you save them.</Text>
             <Link href="/seeker/profile">
               <Button type="primary" icon={<UserRound size={16} aria-hidden />}>
@@ -274,30 +272,26 @@ export default function SeekerDashboardPage() {
             }
           >
             {applications.length ? (
-              <List
-                dataSource={applications.slice(0, 4)}
-                renderItem={(application) => {
+              <Listy
+                items={applications.slice(0, 4)}
+                rowKey="id"
+                virtual={false}
+                itemRender={(application) => {
                   const job = jobsById.get(application.jobId);
                   return (
-                    <List.Item
-                      actions={[
-                        <Link
-                          key={application.id}
-                          href={`/seeker/jobs/${application.jobId}`}
-                        >
-                          View job
-                        </Link>,
-                      ]}
-                    >
-                      <List.Item.Meta
-                        avatar={
-                          <BriefcaseBusiness size={18} color="#2563eb" aria-hidden />
-                        }
-                        title={job?.title ?? 'Vacancy no longer listed'}
-                        description={`${job?.company ?? 'Unknown employer'} · applied ${formatDate(application.appliedAt)}`}
-                      />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <BriefcaseBusiness size={18} color="#2563eb" aria-hidden />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text strong>{job?.title ?? 'Vacancy no longer listed'}</Text>
+                        <div>
+                          <Text type="secondary">
+                            {job?.company ?? 'Unknown employer'} · applied {formatDate(application.appliedAt)}
+                          </Text>
+                        </div>
+                      </div>
                       <ApplicationStatusTag status={application.status} />
-                    </List.Item>
+                      <Link href={`/seeker/jobs/${application.jobId}`}>View job</Link>
+                    </div>
                   );
                 }}
               />
@@ -323,23 +317,24 @@ export default function SeekerDashboardPage() {
             }
           >
             {recommendedJobs.length ? (
-              <List
-                dataSource={recommendedJobs}
-                renderItem={(job) => (
-                  <List.Item
-                    actions={[
-                      <Link key={job.id} href={`/seeker/jobs/${job.id}`}>
-                        View job
-                      </Link>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      avatar={<Sparkles size={18} color="#16a34a" aria-hidden />}
-                      title={job.title}
-                      description={`${job.company} · ${job.location} · ${formatSalary(job.currency, job.salaryMin, job.salaryMax)}`}
-                    />
+              <Listy
+                items={recommendedJobs}
+                rowKey="id"
+                virtual={false}
+                itemRender={(job) => (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Sparkles size={18} color="#16a34a" aria-hidden />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text strong>{job.title}</Text>
+                      <div>
+                        <Text type="secondary">
+                          {job.company} · {job.location} · {formatSalary(job.currency, job.salaryMin, job.salaryMax)}
+                        </Text>
+                      </div>
+                    </div>
                     <Tag>{job.type}</Tag>
-                  </List.Item>
+                    <Link href={`/seeker/jobs/${job.id}`}>View job</Link>
+                  </div>
                 )}
               />
             ) : (
@@ -357,11 +352,11 @@ export default function SeekerDashboardPage() {
               <Alert
                 type="success"
                 showIcon
-                message="Your profile is complete"
+                title="Your profile is complete"
                 description="Employers can see your CV, skills and experience."
               />
             ) : (
-              <Space direction="vertical" size={10} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                 <Progress percent={completion.percent} />
                 <Text type="secondary">
                   Add your {completion.missing.slice(0, 3).join(', ')}
@@ -386,7 +381,7 @@ export default function SeekerDashboardPage() {
           </Card>
 
           <Card title="Quick actions" style={{ marginTop: 16 }}>
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Link href="/seeker/profile">
                 <Button block icon={<FileCheck2 size={16} aria-hidden />}>
                   Update profile and CV

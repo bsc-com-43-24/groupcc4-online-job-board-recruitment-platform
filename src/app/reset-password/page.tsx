@@ -58,14 +58,14 @@ function ResetPasswordContent() {
           <Title level={3} style={{ marginBottom: 6 }}>
             Set a new password
           </Title>
-          <Text type="secondary">Choose a password with at least 8 characters.</Text>
+          <Text type="secondary">Choose a password with at least 12 characters.</Text>
         </div>
 
         {!token ? (
           <Alert
             type="error"
             showIcon
-            message="This reset link is invalid or expired."
+            title="This reset link is invalid or expired."
             description={
               <Link href="/forgot-password">Request a new reset link</Link>
             }
@@ -76,7 +76,7 @@ function ResetPasswordContent() {
               <Alert
                 type="error"
                 showIcon
-                message={error}
+                title={error}
                 description={
                   <Link href="/forgot-password">Request a new reset link</Link>
                 }
@@ -96,12 +96,13 @@ function ResetPasswordContent() {
                 label="New password"
                 rules={[
                   { required: true, message: 'Enter a new password' },
-                  { min: 8, message: 'Use at least 8 characters' },
+                  { min: 12, message: 'Use at least 12 characters' },
+                  { max: 72, message: 'Use no more than 72 characters' },
                 ]}
               >
                 <Input.Password
                   prefix={<LockOutlined aria-hidden />}
-                  placeholder="At least 8 characters"
+                  placeholder="At least 12 characters"
                   size="large"
                   autoComplete="new-password"
                 />

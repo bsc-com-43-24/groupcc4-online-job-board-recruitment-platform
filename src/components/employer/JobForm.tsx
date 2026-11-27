@@ -1,28 +1,13 @@
 'use client';
 
-import { Button, Col, Form, Input, InputNumber, Row, Select, Space } from 'antd';
-import type { Job, JobCategory, JobStatus, JobType, WorkMode } from '@/mock/types';
-
-const JOB_TYPES: JobType[] = ['Full-time', 'Part-time', 'Contract', 'Internship'];
-const WORK_MODES: WorkMode[] = ['On-site', 'Hybrid', 'Remote'];
-const JOB_CATEGORIES: JobCategory[] = [
-  'Technology',
-  'Marketing',
-  'Business & Finance',
-  'Sales',
-  'Design & Research',
-];
+import { Alert, Button, Col, Form, Input, Row, Select, Space } from 'antd';
+import type { CompanyView, Job, JobCategory, JobType, WorkMode } from '@/mock/types';
 
 export interface JobFormValues {
+  companyId: string;
   title: string;
   location: string;
-  category: JobCategory;
-  workMode: WorkMode;
-  type: JobType;
-  salaryMin: number | null;
-  salaryMax: number | null;
   deadline: string;
-  summary: string;
   description: string;
   responsibilities: string;
   qualifications: string;
@@ -30,10 +15,11 @@ export interface JobFormValues {
 }
 
 interface JobFormProps {
+  companies: CompanyView[];
   initialValues?: Job;
   submitLabel?: string;
   submitting?: boolean;
-  onSubmit: (values: JobFormValues, status: JobStatus) => void;
+  onSubmit: (values: JobFormValues) => void | Promise<void>;
   onCancel?: () => void;
 }
 
@@ -41,11 +27,8 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/**
- * Create/edit form shared by the "post a job" page and the edit drawer, so the
- * same validation applies wherever a vacancy is written.
- */
 export default function JobForm({
+  companies,
   initialValues,
   submitLabel = 'Publish vacancy',
   submitting = false,
@@ -54,33 +37,20 @@ export default function JobForm({
 }: JobFormProps) {
   const [form] = Form.useForm<JobFormValues>();
 
-  const initial = initialValues
-    ? {
-        title: initialValues.title,
-        location: initialValues.location,
-        category: initialValues.category ?? 'Technology',
-        workMode: initialValues.workMode,
-        type: initialValues.type,
-        salaryMin: initialValues.salaryMin,
-        salaryMax: initialValues.salaryMax,
-        deadline: initialValues.deadline,
-        summary: initialValues.summary,
-        description: initialValues.description,
-        responsibilities: initialValues.responsibilities.join('\n'),
-        qualifications: initialValues.qualifications.join('\n'),
-        skills: initialValues.skills,
-      }
-    : {
-        workMode: 'On-site' as WorkMode,
-        type: 'Full-time' as JobType,
-        category: 'Technology' as JobCategory,
-        skills: [] as string[],
-        deadline: '',
-      };
+  const initial: JobFormValues = {
+    companyId: initialValues?.companyId ?? companies[0]?.id ?? '',
+    title: initialValues?.title ?? '',
+    location: initialValues?.location ?? '',
+    deadline: initialValues?.deadline ?? '',
+    description: initialValues?.description ?? '',
+    responsibilities: initialValues?.responsibilities.join('\n') ?? '',
+    qualifications: initialValues?.qualifications.join('\n') ?? '',
+    skills: initialValues?.skills ?? [],
+  };
 
-  const submitWithStatus = async (status: JobStatus) => {
+  const submit = async () => {
     const values = await form.validateFields();
-    onSubmit(values, status);
+    await onSubmit(values);
   };
 
   return (
@@ -89,8 +59,40 @@ export default function JobForm({
       layout="vertical"
       initialValues={initial}
       requiredMark="optional"
-      onFinish={() => submitWithStatus('Active')}
+      onFinish={() => void submit()}
     >
+      {companies.length === 0 ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          title="Create a company first"
+          description="The recruitment API requires a company before you can post a vacancy."
+        />
+      ) : null}
+
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        title="Supported vacancy fields"
+        description="The API stores a title, company, location, deadline, description and qualifications. Category, work mode, contract type and salary are not available and are not shown."
+      />
+
+      <Form.Item
+        name="companyId"
+        label="Company"
+        rules={[{ required: true, message: 'Choose a company' }]}
+      >
+        <Select
+          size="large"
+          disabled={companies.length === 0}
+          options={companies.map((company) => ({ value: company.id, label: company.name }))}
+          placeholder="Select a company"
+          aria-label="Company"
+        />
+      </Form.Item>
+
       <Row gutter={16}>
         <Col xs={24} md={16}>
           <Form.Item
@@ -112,107 +114,20 @@ export default function JobForm({
         </Col>
       </Row>
 
-      <Row gutter={16}>
-        <Col xs={24} md={6}>
-          <Form.Item name="category" label="Category" rules={[{ required: true }]}>
-            <Select
-              size="large"
-              options={JOB_CATEGORIES.map((value) => ({ value, label: value }))}
-              aria-label="Job category"
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item name="workMode" label="Work mode" rules={[{ required: true }]}>
-            <Select
-              size="large"
-              options={WORK_MODES.map((value) => ({ value, label: value }))}
-              aria-label="Work mode"
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item name="type" label="Contract type" rules={[{ required: true }]}>
-            <Select
-              size="large"
-              options={JOB_TYPES.map((value) => ({ value, label: value }))}
-              aria-label="Contract type"
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item
-            name="deadline"
-            label="Application deadline"
-            rules={[
-              { required: true, message: 'Choose a deadline' },
-              {
-                validator: (_, value: string) =>
-                  !value || value >= todayISO()
-                    ? Promise.resolve()
-                    : Promise.reject(new Error('The deadline must be today or later')),
-              },
-            ]}
-          >
-            <Input type="date" size="large" min={todayISO()} />
-          </Form.Item>
-        </Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col xs={24} md={12}>
-          <Form.Item
-            name="salaryMin"
-            label="Minimum salary (MWK per month)"
-            rules={[{ required: true, message: 'Enter the lower salary bound' }]}
-          >
-            <InputNumber
-              size="large"
-              style={{ width: '100%' }}
-              min={0}
-              step={50000}
-              placeholder="e.g. 1500000"
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={12}>
-          <Form.Item
-            name="salaryMax"
-            label="Maximum salary (MWK per month)"
-            dependencies={['salaryMin']}
-            rules={[
-              { required: true, message: 'Enter the upper salary bound' },
-              ({ getFieldValue }) => ({
-                validator: (_, value: number | null) => {
-                  const min = getFieldValue('salaryMin') as number | null;
-                  if (value == null || min == null || value >= min) {
-                    return Promise.resolve();
-                  }
-                  return Promise.reject(
-                    new Error('The maximum must be at least the minimum'),
-                  );
-                },
-              }),
-            ]}
-          >
-            <InputNumber
-              size="large"
-              style={{ width: '100%' }}
-              min={0}
-              step={50000}
-              placeholder="e.g. 2500000"
-            />
-          </Form.Item>
-        </Col>
-      </Row>
-
       <Form.Item
-        name="summary"
-        label="Short summary"
-        extra="Shown on the job card. Keep it to one sentence."
-        rules={[{ required: true, whitespace: true, message: 'Add a short summary' }]}
+        name="deadline"
+        label="Application deadline"
+        rules={[
+          { required: true, message: 'Choose a deadline' },
+          {
+            validator: (_, value: string) =>
+              !value || value >= todayISO()
+                ? Promise.resolve()
+                : Promise.reject(new Error('The deadline must be today or later')),
+          },
+        ]}
       >
-        <Input size="large" maxLength={140} showCount />
+        <Input type="date" size="large" min={todayISO()} />
       </Form.Item>
 
       <Form.Item
@@ -220,14 +135,10 @@ export default function JobForm({
         label="Full description"
         rules={[{ required: true, whitespace: true, message: 'Describe the role' }]}
       >
-        <Input.TextArea rows={5} maxLength={3000} showCount />
+        <Input.TextArea rows={5} maxLength={10000} showCount />
       </Form.Item>
 
-      <Form.Item
-        name="responsibilities"
-        label="Responsibilities"
-        extra="One per line."
-      >
+      <Form.Item name="responsibilities" label="Responsibilities" extra="One per line.">
         <Input.TextArea rows={4} placeholder={'Own features end to end\nReview code'} />
       </Form.Item>
 
@@ -250,15 +161,14 @@ export default function JobForm({
       </Form.Item>
 
       <Space wrap>
-        <Button type="primary" htmlType="submit" size="large" loading={submitting}>
-          {submitLabel}
-        </Button>
         <Button
+          type="primary"
+          htmlType="submit"
           size="large"
-          disabled={submitting}
-          onClick={() => submitWithStatus('Draft')}
+          loading={submitting}
+          disabled={companies.length === 0}
         >
-          Save as draft
+          {submitLabel}
         </Button>
         {onCancel ? (
           <Button size="large" onClick={onCancel} disabled={submitting}>
@@ -270,7 +180,6 @@ export default function JobForm({
   );
 }
 
-/** Converts textarea input into a clean string array. */
 export function toLines(value: string | undefined): string[] {
   return (value ?? '')
     .split('\n')
@@ -278,22 +187,35 @@ export function toLines(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
-/** Maps validated form values onto the fields a `Job` record stores. */
-export function toJobPatch(values: JobFormValues, status: JobStatus) {
+export function toJobPatch(values: JobFormValues) {
+  const description = values.description.trim();
+  const responsibilities = toLines(values.responsibilities);
+  const qualifications = toLines(values.qualifications);
+  const skills = values.skills ?? [];
+
   return {
+    employerId: '',
+    company: '',
+    companyId: values.companyId,
     title: values.title.trim(),
     location: values.location.trim(),
-    category: values.category,
-    workMode: values.workMode,
-    type: values.type,
-    salaryMin: Number(values.salaryMin ?? 0),
-    salaryMax: Number(values.salaryMax ?? 0),
+    category: 'Technology' as JobCategory,
+    workMode: 'On-site' as WorkMode,
+    type: 'Full-time' as JobType,
+    currency: 'MWK',
+    salaryMin: 0,
+    salaryMax: 0,
+    summary: description.split('\n')[0]?.slice(0, 220) ?? values.title.trim(),
+    description: [
+      description,
+      responsibilities.length ? `Responsibilities:\n${responsibilities.map((item) => `- ${item}`).join('\n')}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+    responsibilities,
+    qualifications,
+    skills,
     deadline: values.deadline,
-    summary: values.summary.trim(),
-    description: values.description.trim(),
-    responsibilities: toLines(values.responsibilities),
-    qualifications: toLines(values.qualifications),
-    skills: values.skills ?? [],
-    status,
+    status: 'Active' as const,
   };
 }

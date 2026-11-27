@@ -11,5 +11,5 @@ export default function SeekerProfileLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <ProtectedRoute role="SEEKER">{children}</ProtectedRoute>;
+  return <ProtectedRoute role="JOB_SEEKER">{children}</ProtectedRoute>;
 }

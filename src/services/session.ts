@@ -17,6 +17,13 @@ const COOKIE_OPTIONS = {
   expires: 7,
 };
 
+const SESSION_STORAGE_KEY = 'cc4.session.v1';
+const TOKEN_KEY = 'token';
+const ROLE_KEY = 'role';
+
+const VALID_ROLES: Role[] = ['JOB_SEEKER', 'EMPLOYER', 'ADMIN'];
+let loginRedirectPending = false;
+
 export interface Session {
   userId: string;
   role: Role;
@@ -24,9 +31,9 @@ export interface Session {
   email: string;
 }
 
-const SESSION_STORAGE_KEY = 'demo_session';
-const LOCAL_TOKEN_KEY = 'token';
-const LOCAL_ROLE_KEY = 'role';
+function isRole(value: unknown): value is Role {
+  return typeof value === 'string' && VALID_ROLES.includes(value as Role);
+}
 
 function readSessionFromStorage(): Session | null {
   if (typeof window === 'undefined') {
@@ -34,23 +41,22 @@ function readSessionFromStorage(): Session | null {
   }
 
   const raw = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
-  if (!raw) {
+  const token = window.localStorage.getItem(TOKEN_KEY);
+  if (!raw || !token || token === 'mock-jwt-token') {
     return null;
   }
 
   try {
     const parsed = JSON.parse(raw) as Partial<Session>;
-    const role = parsed.role;
-
-    if (!role || (role !== 'SEEKER' && role !== 'EMPLOYER')) {
+    if (!isRole(parsed.role) || !parsed.userId || !parsed.email) {
       return null;
     }
 
     return {
-      userId: parsed.userId ?? '',
-      role,
-      name: parsed.name ?? 'User',
-      email: parsed.email ?? '',
+      userId: parsed.userId,
+      role: parsed.role,
+      name: parsed.name ?? parsed.email.split('@')[0],
+      email: parsed.email,
     };
   } catch {
     return null;
@@ -71,8 +77,15 @@ export function getSession(): Session | null {
   return sessionStore.get();
 }
 
-export function persistSession(session: Session, token = 'mock-jwt-token'): void {
-  const nextSession = {
+export function getToken(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function persistSession(session: Session, token: string): void {
+  const nextSession: Session = {
     userId: session.userId,
     role: session.role,
     name: session.name,
@@ -81,8 +94,9 @@ export function persistSession(session: Session, token = 'mock-jwt-token'): void
 
   if (typeof window !== 'undefined') {
     window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
-    window.localStorage.setItem(LOCAL_TOKEN_KEY, token);
-    window.localStorage.setItem(LOCAL_ROLE_KEY, session.role);
+    window.localStorage.setItem(TOKEN_KEY, token);
+    window.localStorage.setItem(ROLE_KEY, session.role);
+    window.sessionStorage.removeItem('demo_session');
   }
 
   Cookies.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
@@ -93,11 +107,20 @@ export function persistSession(session: Session, token = 'mock-jwt-token'): void
   sessionStore.set(nextSession);
 }
 
+export function updateSessionName(name: string): void {
+  const current = sessionStore.get();
+  if (!current || !name || current.name === name) {
+    return;
+  }
+  persistSession({ ...current, name }, getToken() ?? '');
+}
+
 export function clearSession(): void {
   if (typeof window !== 'undefined') {
     window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    window.localStorage.removeItem(LOCAL_TOKEN_KEY);
-    window.localStorage.removeItem(LOCAL_ROLE_KEY);
+    window.sessionStorage.removeItem('demo_session');
+    window.localStorage.removeItem(TOKEN_KEY);
+    window.localStorage.removeItem(ROLE_KEY);
   }
 
   [SESSION_COOKIE, ROLE_COOKIE, NAME_COOKIE, EMAIL_COOKIE, ID_COOKIE].forEach(
@@ -108,14 +131,25 @@ export function clearSession(): void {
   sessionStore.set(null);
 }
 
+export function beginLoginRedirect(): boolean {
+  if (loginRedirectPending) {
+    return false;
+  }
+  loginRedirectPending = true;
+  return true;
+}
+
+export function isLoginRedirectPending(): boolean {
+  return loginRedirectPending;
+}
+
 export function roleHome(role: Role): string {
+  if (role === 'ADMIN') {
+    return '/admin/dashboard';
+  }
   return role === 'EMPLOYER' ? '/employer/dashboard' : '/seeker/dashboard';
 }
 
-/**
- * Only same-origin, absolute paths are accepted as a post-login destination,
- * so `?next=` cannot be used as an open redirect.
- */
 export function safeNextPath(next: string | null | undefined): string | null {
   if (!next) {
     return null;

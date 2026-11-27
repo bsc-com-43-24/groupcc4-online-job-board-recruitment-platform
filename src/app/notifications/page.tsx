@@ -43,7 +43,7 @@ export default function NotificationsPage() {
 
   return (
     <PageContainer maxWidth={900}>
-      <Space direction="vertical" size={4} style={{ marginBottom: 20 }}>
+      <Space orientation="vertical" size={4} style={{ marginBottom: 20 }}>
         <Title level={2} style={{ margin: 0 }}>
           Notifications
         </Title>

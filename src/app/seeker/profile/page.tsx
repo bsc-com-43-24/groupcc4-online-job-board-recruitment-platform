@@ -25,11 +25,11 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import { useHydrated } from '@/hooks/useHydrated';
 import { useProfile } from '@/hooks/useStore';
 import { saveProfile } from '@/mock/store';
+import { apiErrorMessage, validateUpload } from '@/services/api';
 import { useSession } from '@/services/session';
 
 const { Title, Text } = Typography;
 
-const MAX_CV_BYTES = 5 * 1024 * 1024;
 const MAX_PROFILE_PICTURE_BYTES = 1 * 1024 * 1024;
 const PROFILE_PICTURE_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -76,13 +76,16 @@ export default function SeekerProfilePage() {
   const profile = useProfile(session?.userId);
   const { message } = AntApp.useApp();
   const [form] = Form.useForm<ProfileFormValues>();
-  const [cvName, setCvName] = useState<string | null>(profile?.cvName ?? null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [cvRemoved, setCvRemoved] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(
     profile?.profilePicture ?? null,
   );
   const [saving, setSaving] = useState(false);
   const [uploadKey, setUploadKey] = useState(0);
   const [pictureUploadKey, setPictureUploadKey] = useState(0);
+
+  const cvName = cvFile?.name ?? (cvRemoved ? null : profile?.cvName ?? null);
 
   if (!hydrated || !session) {
     return (
@@ -96,23 +99,15 @@ export default function SeekerProfilePage() {
     name: 'cv',
     maxCount: 1,
     accept: '.pdf,application/pdf',
-    beforeUpload: async (file) => {
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
-        message.error('Upload a PDF file only.');
+    beforeUpload: (file) => {
+      const uploadError = validateUpload(file);
+      if (uploadError) {
+        message.error(uploadError);
         return Upload.LIST_IGNORE;
       }
-      if (file.size > MAX_CV_BYTES) {
-        message.error('Your CV must be 5 MB or smaller.');
-        return Upload.LIST_IGNORE;
-      }
-      if ((await file.slice(0, 5).text()) !== '%PDF-') {
-        message.error('This file is not a valid PDF.');
-        return Upload.LIST_IGNORE;
-      }
+      setCvFile(file);
+      setCvRemoved(false);
       return false;
-    },
-    onChange: ({ fileList }) => {
-      setCvName(fileList[0]?.name ?? null);
     },
   };
 
@@ -147,9 +142,7 @@ export default function SeekerProfilePage() {
   const handleFinish = async (values: ProfileFormValues) => {
     setSaving(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      saveProfile({
+      await saveProfile({
         userId: session.userId,
         email: session.email,
         fullName: values.fullName,
@@ -159,13 +152,15 @@ export default function SeekerProfilePage() {
         skills: values.skills ?? [],
         education: values.education ?? '',
         experience: values.experience ?? '',
-        cvName: cvName ?? undefined,
+        cvFile: cvFile ?? undefined,
         profilePicture: profilePicture ?? undefined,
       });
-
+      setCvFile(null);
+      setCvRemoved(false);
+      setUploadKey((key) => key + 1);
       message.success('Profile saved.');
-    } catch {
-      message.error('Could not save your profile. Please try again.');
+    } catch (saveError) {
+      message.error(apiErrorMessage(saveError));
     } finally {
       setSaving(false);
     }
@@ -337,7 +332,7 @@ export default function SeekerProfilePage() {
 
         <Col xs={24} lg={8}>
           <Card title="Profile picture" style={{ marginBottom: 16 }}>
-            <Space direction="vertical" align="center" size={12} style={{ width: '100%' }}>
+            <Space orientation="vertical" align="center" size={12} style={{ width: '100%' }}>
               <Avatar
                 size={96}
                 src={profilePicture ?? undefined}
@@ -358,14 +353,14 @@ export default function SeekerProfilePage() {
           </Card>
 
           <Card title="CV">
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
               {cvName ? (
-                <Alert type="success" showIcon message="CV attached" description={cvName} />
+                <Alert type="success" showIcon title="CV attached" description={cvName} />
               ) : (
                 <Alert
                   type="info"
                   showIcon
-                  message="No CV yet"
+                  title="No CV yet"
                   description="A CV is required when you apply for a vacancy."
                 />
               )}
@@ -386,15 +381,15 @@ export default function SeekerProfilePage() {
                 </p>
               </Upload.Dragger>
 
-              {cvName ? (
+              {cvFile ? (
                 <Button
                   block
                   onClick={() => {
-                    setCvName(null);
+                    setCvFile(null);
                     setUploadKey((key) => key + 1);
                   }}
                 >
-                  Remove CV
+                  Discard selected CV
                 </Button>
               ) : null}
 

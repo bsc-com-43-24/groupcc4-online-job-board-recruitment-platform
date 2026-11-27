@@ -9,7 +9,6 @@ import {
   Card,
   Col,
   Input,
-  InputNumber,
   Pagination,
   Row,
   Select,
@@ -21,7 +20,8 @@ import {
 import { Building2, MapPin, SlidersHorizontal } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import EmptyState from '@/components/ui/EmptyState';
-import { usePublishedJobs } from '@/hooks/useStore';
+import { useMockState, usePublishedJobs } from '@/hooks/useStore';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import { deadlineLabel, daysUntil, formatSalary } from '@/lib/format';
 import type { Job, JobCategory, JobType, WorkMode } from '@/mock/types';
 
@@ -43,14 +43,6 @@ const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
   { value: 'relevance', label: 'Relevance' },
 ];
-
-function queryNumber(value: string | null): number | undefined {
-  if (value === null || value.trim() === '') {
-    return undefined;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
-}
 
 function relevanceScore(job: Job, terms: string[]): number {
   const fields: Array<[string, number]> = [
@@ -81,14 +73,13 @@ function JobsContent() {
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const jobs = usePublishedJobs();
+  const state = useMockState();
 
   const keyword = (searchParams.get('keyword') ?? '').trim();
   const location = searchParams.get('location') ?? '';
   const type = searchParams.get('type') ?? '';
   const category = searchParams.get('category') ?? '';
   const workMode = searchParams.get('workMode') ?? '';
-  const salaryMin = queryNumber(searchParams.get('salaryMin'));
-  const salaryMax = queryNumber(searchParams.get('salaryMax'));
   const sort = searchParams.get('sort') === 'relevance' ? 'relevance' : 'newest';
   const requestedPage = Number(searchParams.get('page') ?? '1');
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -136,15 +127,6 @@ function JobsContent() {
       if (workMode && job.workMode !== workMode) {
         return false;
       }
-      if (salaryMin !== undefined && job.salaryMax < salaryMin) {
-        return false;
-      }
-      if (salaryMax !== undefined && job.salaryMin > salaryMax) {
-        return false;
-      }
-      if (salaryMin !== undefined && salaryMax !== undefined && salaryMin > salaryMax) {
-        return false;
-      }
 
       return true;
     });
@@ -160,7 +142,7 @@ function JobsContent() {
     });
 
     return result;
-  }, [jobs, keyword, location, type, category, workMode, salaryMin, salaryMax, sort]);
+  }, [jobs, keyword, location, type, category, workMode, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -175,8 +157,6 @@ function JobsContent() {
     type,
     category,
     workMode,
-    salaryMin !== undefined ? 'salaryMin' : '',
-    salaryMax !== undefined ? 'salaryMax' : '',
   ].filter(Boolean).length;
   const hasSearchState = activeFilters > 0 || searchParams.toString().length > 0;
 
@@ -207,7 +187,7 @@ function JobsContent() {
 
   return (
     <PageContainer maxWidth={1200}>
-      <Space direction="vertical" size={4} style={{ marginBottom: 20 }}>
+      <Space orientation="vertical" size={4} style={{ marginBottom: 20 }}>
         <Title level={2} style={{ margin: 0 }}>
           Browse jobs
         </Title>
@@ -216,6 +196,10 @@ function JobsContent() {
           {keyword ? ` matching “${keyword}”` : ' open right now'}
         </Text>
       </Space>
+
+      {state.error ? (
+        <Alert type="error" showIcon title={state.error} style={{ marginBottom: 16 }} />
+      ) : null}
 
       <Card style={{ marginBottom: 20 }}>
         <Row gutter={[12, 12]} align="middle">
@@ -298,46 +282,7 @@ function JobsContent() {
             />
           </Col>
 
-          <Col xs={12} md={6} lg={3}>
-            <InputNumber
-              aria-label="Minimum salary per month"
-              size="large"
-              min={0}
-              step={50000}
-              style={{ width: '100%' }}
-              placeholder="Min salary (MWK)"
-              value={salaryMin}
-              onChange={(value) =>
-                applyParams({ salaryMin: value == null ? undefined : String(value) })
-              }
-            />
-          </Col>
-          <Col xs={12} md={6} lg={3}>
-            <InputNumber
-              aria-label="Maximum salary per month"
-              size="large"
-              min={0}
-              step={50000}
-              style={{ width: '100%' }}
-              placeholder="Max salary (MWK)"
-              value={salaryMax}
-              onChange={(value) =>
-                applyParams({ salaryMax: value == null ? undefined : String(value) })
-              }
-            />
-          </Col>
         </Row>
-
-        {salaryMin !== undefined &&
-        salaryMax !== undefined &&
-        salaryMin > salaryMax ? (
-          <Alert
-            type="error"
-            showIcon
-            message="Minimum salary must be less than or equal to maximum salary."
-            style={{ marginTop: 12 }}
-          />
-        ) : null}
 
         {hasSearchState ? (
           <Space style={{ marginTop: 12 }} wrap>
@@ -354,7 +299,7 @@ function JobsContent() {
         ) : null}
       </Card>
 
-      <Spin spinning={isPending} tip="Updating results…">
+      <Spin spinning={isPending || Boolean(state.loading)} tip="Updating results…">
       {visibleJobs.length === 0 ? (
         <Card>
           <EmptyState

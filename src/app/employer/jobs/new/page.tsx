@@ -1,19 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { App as AntApp, Button, Card, Space, Typography } from 'antd';
+import { Alert, App as AntApp, Button, Card, Space, Typography } from 'antd';
 import { ArrowLeft } from 'lucide-react';
 import PageContainer from '@/components/PageContainer';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import JobForm, { toJobPatch } from '@/components/employer/JobForm';
 import type { JobFormValues } from '@/components/employer/JobForm';
 import { useHydrated } from '@/hooks/useHydrated';
-import { useMockState } from '@/hooks/useStore';
+import { useCompanies, useMockState } from '@/hooks/useStore';
 import { createJob } from '@/mock/store';
+import { apiErrorMessage } from '@/services/api';
 import { useSession } from '@/services/session';
-import type { JobStatus } from '@/mock/types';
 
 const { Title, Text } = Typography;
 
@@ -22,16 +22,9 @@ export default function NewEmployerJobPage() {
   const session = useSession();
   const router = useRouter();
   const { message } = AntApp.useApp();
-  const accounts = useMockState().accounts;
+  const companies = useCompanies();
+  const state = useMockState();
   const [saving, setSaving] = useState(false);
-
-  const companyName = useMemo(
-    () =>
-      accounts.find((account) => account.email === session?.email)?.companyName ??
-      session?.name ??
-      'Your company',
-    [accounts, session],
-  );
 
   if (!hydrated || !session) {
     return (
@@ -41,24 +34,19 @@ export default function NewEmployerJobPage() {
     );
   }
 
-  const handleSubmit = (values: JobFormValues, status: JobStatus) => {
+  const handleSubmit = async (values: JobFormValues) => {
     setSaving(true);
     try {
-      const job = createJob({
+      const job = await createJob({
+        ...toJobPatch(values),
         employerId: session.userId,
-        company: companyName,
+        company: companies.find((company) => company.id === values.companyId)?.name ?? 'Employer',
         currency: 'MWK',
-        ...toJobPatch(values, status),
       });
-
-      message.success(
-        status === 'Draft'
-          ? 'Vacancy saved as a draft. Publish it when you are ready.'
-          : 'Vacancy published and visible to job seekers.',
-      );
+      message.success('Vacancy published and visible to job seekers.');
       router.push(`/employer/jobs/${job.id}`);
-    } catch {
-      message.error('Could not create this vacancy. Please try again.');
+    } catch (createError) {
+      message.error(apiErrorMessage(createError));
     } finally {
       setSaving(false);
     }
@@ -81,8 +69,17 @@ export default function NewEmployerJobPage() {
         </Text>
       </div>
 
+      {state.error ? (
+        <Alert type="error" showIcon title={state.error} style={{ marginBottom: 16 }} />
+      ) : null}
+
       <Card>
-        <JobForm submitLabel="Publish vacancy" submitting={saving} onSubmit={handleSubmit} />
+        <JobForm
+          companies={companies}
+          submitLabel="Publish vacancy"
+          submitting={saving}
+          onSubmit={handleSubmit}
+        />
       </Card>
     </PageContainer>
   );

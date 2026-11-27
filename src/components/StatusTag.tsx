@@ -3,16 +3,11 @@ import type { ApplicationStatus, JobStatus } from '@/mock/types';
 
 const APPLICATION_COLORS: Record<ApplicationStatus, string> = {
   Submitted: 'default',
-  'Under Review': 'gold',
   Shortlisted: 'blue',
-  Interviewed: 'purple',
-  Hired: 'green',
   Rejected: 'red',
-  Withdrawn: 'default',
 };
 
 const JOB_STATUS_COLORS: Record<JobStatus, string> = {
-  Draft: 'default',
   Active: 'green',
   Closed: 'red',
 };
